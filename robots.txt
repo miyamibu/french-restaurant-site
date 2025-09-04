@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+Sitemap: /french-restaurant-site/sitemap.xml
+

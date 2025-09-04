@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="Bistro Étoile ロゴ">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#8c1520"/>
+      <stop offset="1" stop-color="#6b0f1a"/>
+    </linearGradient>
+  </defs>
+  <circle cx="64" cy="64" r="60" fill="url(#g)" />
+  <g transform="translate(64 64)">
+    <g fill="#d4af37" transform="translate(0, -2)">
+      <polygon points="0,-34 8,-8 34,-8 13,7 20,32 0,17 -20,32 -13,7 -34,-8 -8,-8"/>
+    </g>
+    <text x="0" y="34" font-family="Playfair Display, Georgia, serif" font-size="18" text-anchor="middle" fill="#fff">Étoile</text>
+  </g>
+</svg>
+

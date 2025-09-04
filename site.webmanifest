@@ -1,0 +1,16 @@
+{
+  "name": "ビストロジョワ",
+  "short_name": "ジョワ",
+  "start_url": "/french-restaurant-site/index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#6b0f1a",
+  "icons": [
+    {
+      "src": "/french-restaurant-site/assets/img/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

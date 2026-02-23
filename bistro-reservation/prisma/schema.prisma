@@ -1,0 +1,64 @@
+// Prisma schema for Bistro reservation system
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SeatType {
+  MAIN
+  ROOM1
+  ROOM2
+}
+
+enum ReservationStatus {
+  CONFIRMED
+  CANCELLED
+  DONE
+  NOSHOW
+}
+
+model Reservation {
+  id         String             @id @default(cuid())
+  date       String
+  seatType   SeatType
+  partySize  Int
+  arrivalTime String?
+  name       String
+  phone      String
+  note       String?
+  status     ReservationStatus  @default(CONFIRMED)
+  lineUserId String?
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  @@index([date, seatType])
+}
+
+model BusinessDay {
+  id       String  @id @default(cuid())
+  date     String  @unique
+  isClosed Boolean @default(false)
+  note     String?
+}
+
+model MenuItem {
+  id          String  @id @default(cuid())
+  title       String
+  description String
+  price       Int
+  sortOrder   Int      @default(0)
+  isPublished Boolean  @default(true)
+}
+
+model Photo {
+  id          String  @id @default(cuid())
+  url         String
+  caption     String
+  sortOrder   Int      @default(0)
+  isPublished Boolean  @default(true)
+}

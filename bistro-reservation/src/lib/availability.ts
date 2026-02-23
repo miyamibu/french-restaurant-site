@@ -1,5 +1,5 @@
-import { ReservationStatus, SeatType } from "@prisma/client";
-import { jstDateFromString, isSameOrBeforeToday, isBeyondRange, todayJst } from "@/lib/dates";
+import { ReservationStatus } from "@prisma/client";
+import { jstDateFromString, isSameOrBeforeToday, isBeyondRange } from "@/lib/dates";
 import type { PrismaClient } from "@prisma/client";
 
 export type AvailabilityReason =
@@ -34,7 +34,7 @@ export async function getAvailability(
   let parsed: Date;
   try {
     parsed = jstDateFromString(dateStr);
-  } catch (e) {
+  } catch {
     return {
       bookable: false,
       reason: "INVALID_DATE",

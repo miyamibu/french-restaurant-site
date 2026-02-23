@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ReservationStatus } from "@prisma/client";
-import { addDays, format } from "date-fns";
-import { todayJst } from "@/lib/dates";
+import { addDays } from "date-fns";
+import { formatJst, todayJst } from "@/lib/dates";
 
 export async function POST() {
   const tomorrow = addDays(todayJst(), 1);
-  const target = format(tomorrow, "yyyy-MM-dd");
+  const target = formatJst(tomorrow);
 
   const reservations = await prisma.reservation.findMany({
     where: { date: target, status: ReservationStatus.CONFIRMED },

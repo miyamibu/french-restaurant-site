@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/crons/cancel-expired-orders",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/crons/delete-old-histories",
+      "schedule": "0 1 * * *"
+    }
+  ]
+}

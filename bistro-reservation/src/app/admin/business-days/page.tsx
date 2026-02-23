@@ -36,7 +36,7 @@ export default function BusinessDaysPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pt-20">
       <h1 className="text-2xl font-semibold">休業日管理</h1>
       <form onSubmit={submit} className="card p-6 space-y-3">
         <label className="text-sm text-gray-700">

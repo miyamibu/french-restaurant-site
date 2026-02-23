@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Prisma, ReservationStatus, SeatType } from "@prisma/client";
+import { Prisma, ReservationStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isArrivalTimeValid, MAIN_CAPACITY } from "@/lib/availability";
 import { jstDateFromString, isSameOrBeforeToday, isBeyondRange } from "@/lib/dates";
@@ -11,7 +11,7 @@ const RETRIES = 3;
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { date, seatType, partySize, arrivalTime, name, phone, note, lineUserId } = body ?? {};
+  const { date, partySize, arrivalTime, name, phone, note, lineUserId } = body ?? {};
 
   if (!date || !partySize || !name || !phone) {
     return NextResponse.json({ reason: "INVALID_INPUT", callPhone, callMessage }, { status: 400 });
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
   let parsedDate: Date;
   try {
     parsedDate = jstDateFromString(date);
-  } catch (e) {
+  } catch {
     return NextResponse.json({ reason: "INVALID_DATE", callPhone, callMessage }, { status: 400 });
   }
 
@@ -39,8 +39,6 @@ export async function POST(request: NextRequest) {
   if (!isArrivalTimeValid(arrivalTime)) {
     return NextResponse.json({ reason: "INVALID_ARRIVAL_TIME", callPhone, callMessage }, { status: 400 });
   }
-
-  const typedSeat = SeatType.MAIN;
 
   for (let attempt = 1; attempt <= RETRIES; attempt++) {
     try {
@@ -78,7 +76,7 @@ export async function POST(request: NextRequest) {
           const created = await tx.reservation.create({
             data: {
               date,
-              seatType: typedSeat,
+              seatType: "MAIN",
               partySize: partyCount,
               arrivalTime: arrivalTime ?? null,
               name,
@@ -101,20 +99,20 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         reservationId: reservation.id,
-        summary: `${reservation.date} ${reservation.seatType} ${reservation.partySize}名で承りました。`,
+        summary: `${reservation.date} ${reservation.partySize}名で承りました。`,
         adminLink,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : typeof error === "string" ? error : String(error);
       const isRetryable =
-        error?.code === "P2034" ||
         (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") ||
-        String(error?.message || "").includes("could not serialize");
+        message.includes("could not serialize");
 
       if (isRetryable && attempt < RETRIES) {
         continue;
       }
 
-      const message = String(error?.message || "");
       let reason = "UNKNOWN";
       if (message.includes("CLOSED")) reason = "CLOSED";
       else if (message.includes("MAIN_FULL")) reason = "MAIN_FULL";

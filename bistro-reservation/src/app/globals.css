@@ -61,6 +61,21 @@ a:hover {
 .menu-no-select button {
   cursor: pointer;
 }
+.menu-card,
+.menu-card * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-user-drag: none;
+}
+.menu-card {
+  display: block;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.menu-card * {
+  cursor: inherit;
+}
 @layer utilities {
   .cursor-utensils {
     cursor:
@@ -68,4 +83,56 @@ a:hover {
       url("/photos/icons/utensils-cursor-32.png") 16 16,
       pointer;
   }
+}
+
+.menu-sub-en{
+  letter-spacing: normal !important;
+  text-transform: none !important;
+}
+
+@keyframes storeFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.store-fade-up {
+  opacity: 0;
+  animation: storeFadeUp 0.8s ease-out both;
+}
+
+.menu-course-title {
+  font-size: var(--course-title-size, 28px);
+  line-height: 1.1;
+}
+
+@media (min-width: 768px) {
+  .menu-course-title {
+    font-size: var(--course-title-size-md, 36px);
+  }
+}
+
+.menu-heading-title {
+  font-size: var(--menu-heading-size, 32px);
+}
+
+@media (min-width: 768px) {
+  .menu-heading-title {
+    font-size: var(--menu-heading-size-md, 40px);
+  }
+}
+
+.select-menu-solid {
+  background-color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+.select-menu-solid [data-lk-material-sublayer="bgColor"] {
+  background-color: #ffffff !important;
+  opacity: 1 !important;
 }

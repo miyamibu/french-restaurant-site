@@ -1,21 +1,44 @@
-import { addDays, format } from "date-fns";
-import { todayJst } from "@/lib/dates";
+import "@/lib/css/liftkitvars.css";
+import { addDays } from "date-fns";
+import { Tangerine } from "next/font/google";
+import { formatJst, todayJst } from "@/lib/dates";
 import { ReserveForm } from "@/components/reserve-form";
 
+const tangerine = Tangerine({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  display: "swap",
+});
+
+const menuHeadingSize = { base: 17, md: 45 };
+
 export default function ReservePage() {
-  const defaultDate = format(addDays(todayJst(), 1), "yyyy-MM-dd");
+  const defaultDate = formatJst(addDays(todayJst(), 1));
+  const reservePageSpacing = { top:150, bottom: 80 }; // 上下余白の微調整(px)
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-semibold">オンライン予約</h1>
-      <div className="space-y-1 text-gray-700 text-sm">
-        <p>当日のオンライン予約は承っておりません。</p>
-        <p>満席表示の場合でも空きが出る場合があります。</p>
-        <p>キャンセルはお電話にてお願いいたします</p>
-        <p>個室は2〜4名様、ROOM1/ROOM2 を指定でご予約ください。</p>
-        <p>電話番号：090-9829-7614</p>
-      </div>
+    <div
+      className="space-y-6"
+      style={{
+        paddingTop: `${reservePageSpacing.top}px`,
+        paddingBottom: `${reservePageSpacing.bottom}px`,
+      }}
+    >
+      <header className="text-center">
+        <h1
+          className={`menu-heading-title font-semibold text-[#2f1b0f] ${tangerine.className}`}
+          style={
+            {
+              "--menu-heading-size": `${menuHeadingSize.base}px`,
+              "--menu-heading-size-md": `${menuHeadingSize.md}px`,
+            } as Record<string, string>
+          }
+        >
+          RESERVA
+        </h1>
+      </header>
       <ReserveForm defaultDate={defaultDate} />
     </div>
   );
 }
+

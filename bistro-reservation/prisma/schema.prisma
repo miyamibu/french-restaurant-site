@@ -59,6 +59,7 @@ model Photo {
   id          String  @id @default(cuid())
   url         String
   caption     String
+  category    String  @default("food")
   sortOrder   Int      @default(0)
   isPublished Boolean  @default(true)
 }

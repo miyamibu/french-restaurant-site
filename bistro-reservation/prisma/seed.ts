@@ -37,17 +37,38 @@ async function main() {
       {
         url: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1200&q=80",
         caption: "ダイニングの夜景",
+        category: "interior",
         sortOrder: 1,
+      },
+      {
+        url: "https://images.unsplash.com/photo-1521017432531-fbd92d768814?auto=format&fit=crop&w=1200&q=80",
+        caption: "テーブルセッティング",
+        category: "interior",
+        sortOrder: 2,
       },
       {
         url: "https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=1200&q=80",
         caption: "季節のメインディッシュ",
-        sortOrder: 2,
+        category: "food",
+        sortOrder: 3,
       },
       {
         url: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1200&q=80",
         caption: "個室の様子",
-        sortOrder: 3,
+        category: "interior",
+        sortOrder: 4,
+      },
+      {
+        url: "https://images.unsplash.com/photo-1514361892635-6f07dd6f3b25?auto=format&fit=crop&w=1200&q=80",
+        caption: "ワインセレクション",
+        category: "drink",
+        sortOrder: 5,
+      },
+      {
+        url: "https://images.unsplash.com/photo-1481931715705-36f4d64fba7c?auto=format&fit=crop&w=1200&q=80",
+        caption: "カクテルの一杯",
+        category: "drink",
+        sortOrder: 6,
       },
     ],
   });

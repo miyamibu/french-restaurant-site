@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Instagram, Menu, X } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Instagram, Menu, ShoppingCart, X } from "lucide-react";
 import { Playfair_Display } from "next/font/google";
 const links = [
   { href: "/", label: "ホーム" },
@@ -10,43 +11,62 @@ const links = [
   { href: "/menu", label: "メニュー" },
   { href: "/photos", label: "写真" },
   { href: "/info", label: "アクセス" },
-];
+  { href: "/store", label: "オンラインストア" },
+] as const;
 const logoFont = Playfair_Display({
   subsets: ["latin"],
   weight: ["400", "600", "700"],
 });
 export function TopNav() {
+  const logoPos = { x:0 }; // ロゴの左右微調整(px)
+  const cartIconPos = { x: -140 }; // カートアイコンの左右微調整(px)
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  const showCartIcon = pathname === "/store" || (pathname.startsWith("/store/") && pathname !== "/store/cart");
+
   return (
     <div className="relative">
-      <div className="flex items-center justify-between rounded-full bg-white/80 px-4 py-2 shadow-sm backdrop-blur">
+      <div className="relative flex items-center justify-between rounded-full bg-white/80 px-4 py-2 shadow-sm backdrop-blur">
         <a
           href="https://www.instagram.com/"
           target="_blank"
           rel="noreferrer"
           aria-label="Instagramへ"
-          className="text-[#6b3b20] hover:text-[#8a4c29] transition"
+          className="z-10 text-[#6b3b20] hover:text-[#8a4c29] transition"
         >
-          <Instagram size={22} />
+          <Instagram size={35} />
         </a>
 
         <Link
-  href="/"
-  aria-label="ホームへ戻る"
-  className={`text-center ${logoFont.className} cursor-pointer select-none`}
-  onClick={() => setOpen(false)} // もしメニューが開いてたら閉じる
->
-  <p className="text-[11px] uppercase tracking-[0.25em] text-[#b68c5a]">Bistro １０４</p>
-  <p className="text-lg font-semibold text-[#2f1b0f]">Cent Quatre</p>
-</Link>
-
-        <button
-          aria-label="メニューを開く"
-          className="flex items-center justify-center text-[#6b3b20] hover:text-[#8a4c29] transition"
-          onClick={() => setOpen(true)}
+          href="/"
+          aria-label="ホームへ戻る"
+          className={`absolute left-1/2 top-1/2 z-0 text-center ${logoFont.className} cursor-pointer select-none`}
+          style={{ transform: `translate(-50%, -50%) translateX(${logoPos.x}px)` }}
+          onClick={() => setOpen(false)} // もしメニューが開いてたら閉じる
         >
-          <Menu size={22} />
-        </button>
+          <p className="text-[11px] uppercase tracking-[0.25em] text-[#b68c5a]">Bistro １０４</p>
+          <p className="text-lg font-semibold text-[#2f1b0f]">Cent Quatre</p>
+        </Link>
+
+        <div className="z-10 flex items-center gap-3">
+          {showCartIcon && (
+            <Link
+              href="/store/cart"
+              aria-label="カート"
+              className="flex items-center justify-center text-[#6b3b20] transition hover:text-[#8a4c29]"
+              style={{ transform: `translateX(${cartIconPos.x}px)` }}
+            >
+              <ShoppingCart size={35} strokeWidth={1.9} />
+            </Link>
+          )}
+          <button
+            aria-label="メニューを開く"
+            className="flex items-center justify-center text-[#6b3b20] hover:text-[#8a4c29] transition"
+            onClick={() => setOpen(true)}
+          >
+            <Menu size={35} />
+          </button>
+        </div>
       </div>
 
       {open && (
@@ -55,8 +75,7 @@ export function TopNav() {
             className="absolute left-1/2 top-8 z-50 w-[90%] max-w-sm -translate-x-1/2 rounded-2xl bg-white p-5 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-[#6b3b20]">メニュー</p>
+            <div className="flex items-center justify-end">
               <button aria-label="閉じる" onClick={() => setOpen(false)} className="text-[#6b3b20] hover:text-[#8a4c29]">
                 <X size={20} />
               </button>

@@ -1,14 +1,25 @@
-import { addMonths, format, isAfter, isBefore, startOfDay } from "date-fns";
+import { addMonths, isAfter, startOfDay } from "date-fns";
 
 export const JST_TZ = "Asia/Tokyo";
 export const MAX_MONTH_AHEAD = 3;
 
+function toJstDateString(date: Date): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: JST_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const year = parts.find((part) => part.type === "year")?.value ?? "0000";
+  const month = parts.find((part) => part.type === "month")?.value ?? "01";
+  const day = parts.find((part) => part.type === "day")?.value ?? "01";
+
+  return `${year}-${month}-${day}`;
+}
+
 export function todayJst(): Date {
-  const now = new Date();
-  const utcMs = now.getTime();
-  const jstOffsetMs = 9 * 60 * 60 * 1000;
-  const jstDate = new Date(utcMs + jstOffsetMs);
-  return startOfDay(jstDate);
+  return jstDateFromString(toJstDateString(new Date()));
 }
 
 export function jstDateFromString(date: string): Date {
@@ -16,7 +27,7 @@ export function jstDateFromString(date: string): Date {
 }
 
 export function formatJst(date: Date): string {
-  return format(date, "yyyy-MM-dd");
+  return toJstDateString(date);
 }
 
 export function isSameOrBeforeToday(date: Date): boolean {

@@ -1,3 +1,5 @@
+import { CONTACT_PHONE_DISPLAY, CONTACT_TEL_LINK } from "@/lib/contact";
+
 export default function InfoPage() {
   const infoSpacing = { top: "90px", bottom: "80px" };
 
@@ -18,7 +20,10 @@ export default function InfoPage() {
       </div>
       <div className="card p-6 space-y-3 text-gray-800">
         <p>
-          電話予約：<a className="text-brand-700 underline" href="tel:09098297614">090-9829-7614</a>
+          電話予約：
+          <a className="text-brand-700 underline" href={CONTACT_TEL_LINK}>
+            {CONTACT_PHONE_DISPLAY}
+          </a>
         </p>
         <p>当日のご予約はオンラインでは承っております。</p>
         <p>満席表示の場合でも空きが出る場合があります。お電話でご確認ください。</p>

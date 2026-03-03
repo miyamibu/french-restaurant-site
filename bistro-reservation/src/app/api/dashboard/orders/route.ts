@@ -2,11 +2,23 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/basic-auth";
 import { supabaseServer } from "@/lib/supabase-server";
+import { apiError, enforceWriteRequestSecurity } from "@/lib/api-security";
+import { getRequestId, logError } from "@/lib/logger";
+
+function unauthorized(requestId: string) {
+  return apiError(401, {
+    error: "Unauthorized",
+    code: "UNAUTHORIZED",
+    requestId,
+  });
+}
 
 export async function GET(request: NextRequest) {
-  // 認証チェック
+  const requestId = getRequestId(request);
+  const route = "/api/dashboard/orders";
+
   if (!isAuthorized(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized(requestId);
   }
 
   try {
@@ -19,101 +31,50 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(data || []);
   } catch (error) {
-    console.error("Failed to fetch orders:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch orders" },
-      { status: 500 }
-    );
+    logError("dashboard.orders.fetch.failed", {
+      requestId,
+      route,
+      errorCode: "DASHBOARD_ORDER_FETCH_FAILED",
+      context: { message: error instanceof Error ? error.message : String(error) },
+    });
+    return apiError(500, {
+      error: "Failed to fetch orders",
+      code: "DASHBOARD_ORDER_FETCH_FAILED",
+      requestId,
+    });
   }
 }
 
 export async function PUT(request: NextRequest) {
-  // 認証チェック
+  const requestId = getRequestId(request);
+
   if (!isAuthorized(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized(requestId);
   }
 
-  try {
-    const body = await request.json();
-    const { orderId, status } = body;
+  const securityError = enforceWriteRequestSecurity(request, { requestId });
+  if (securityError) return securityError;
 
-    if (!orderId || !status) {
-      return NextResponse.json(
-        { error: "Missing orderId or status" },
-        { status: 400 }
-      );
-    }
-
-    const { data, error } = await supabaseServer
-      .from("orders")
-      .update({ status })
-      .eq("id", orderId)
-      .select();
-
-    if (error) throw error;
-
-    return NextResponse.json(data?.[0] || {});
-  } catch (error) {
-    console.error("Failed to update order:", error);
-    return NextResponse.json(
-      { error: "Failed to update order" },
-      { status: 500 }
-    );
-  }
+  return apiError(410, {
+    error: "Direct status updates are disabled. Use /api/orders/{id}/actions",
+    code: "DIRECT_STATUS_UPDATE_DISABLED",
+    requestId,
+  });
 }
 
 export async function DELETE(request: NextRequest) {
-  // 認証チェック
+  const requestId = getRequestId(request);
+
   if (!isAuthorized(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized(requestId);
   }
 
-  try {
-    const body = await request.json();
-    const { orderId } = body;
+  const securityError = enforceWriteRequestSecurity(request, { requestId });
+  if (securityError) return securityError;
 
-    if (!orderId) {
-      return NextResponse.json(
-        { error: "Missing orderId" },
-        { status: 400 }
-      );
-    }
-
-    // 注文を履歴に移動
-    const { data: orderData, error: fetchError } = await supabaseServer
-      .from("orders")
-      .select("*")
-      .eq("id", orderId)
-      .single();
-
-    if (fetchError || !orderData) {
-      return NextResponse.json(
-        { error: "Order not found" },
-        { status: 404 }
-      );
-    }
-
-    // 履歴テーブルに追加
-    const { error: insertError } = await supabaseServer
-      .from("order_history")
-      .insert([{ ...orderData, status: "shipped" }]);
-
-    if (insertError) throw insertError;
-
-    // 元の注文を削除
-    const { error: deleteError } = await supabaseServer
-      .from("orders")
-      .delete()
-      .eq("id", orderId);
-
-    if (deleteError) throw deleteError;
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Failed to ship order:", error);
-    return NextResponse.json(
-      { error: "Failed to ship order" },
-      { status: 500 }
-    );
-  }
+  return apiError(410, {
+    error: "Direct delete/archive is disabled. Use /api/orders/{id}/actions",
+    code: "DIRECT_ORDER_DELETE_DISABLED",
+    requestId,
+  });
 }

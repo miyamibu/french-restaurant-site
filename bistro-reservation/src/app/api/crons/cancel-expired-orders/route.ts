@@ -1,83 +1,141 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { supabaseServer } from '@/lib/supabase-server'
+import { NextRequest, NextResponse } from "next/server";
+import { supabaseServer } from "@/lib/supabase-server";
+import { env } from "@/lib/env";
+import { apiError } from "@/lib/api-security";
+import { executeCancelOrderAction, OrderActionError } from "@/lib/order-actions";
+import { getRequestId, logError, logInfo } from "@/lib/logger";
 
-export const runtime = 'nodejs'
+export const runtime = "nodejs";
 
-export async function GET(req: NextRequest) {
-  // Vercel からのリクエストか確認（セキュリティ）
-  const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+function isAuthorizedCron(req: NextRequest) {
+  const authHeader = req.headers.get("authorization");
+  return !!env.CRON_SECRET && authHeader === `Bearer ${env.CRON_SECRET}`;
+}
+
+function isGetCompatibilityRequest(req: NextRequest) {
+  return req.headers.get("x-vercel-cron") === "1" || req.nextUrl.searchParams.get("compat") === "1";
+}
+
+async function executeCancelExpired(req: NextRequest) {
+  const requestId = getRequestId(req);
+  const route = "/api/crons/cancel-expired-orders";
+
+  if (!isAuthorizedCron(req)) {
+    return apiError(401, { error: "Unauthorized", code: "UNAUTHORIZED", requestId });
   }
 
   try {
-    // 本日より前の来店予定日を持つ注文を取得
-    const today = new Date().toISOString().split('T')[0]
+    const nowIso = new Date().toISOString();
 
     const { data: ordersToCancel, error: selectError } = await supabaseServer
-      .from('orders')
-      .select('*')
-      .eq('payment_method', 'cash-store')
-      .lt('store_visit_date', today)
+      .from("orders")
+      .select("id, version, status, hold_expires_at, expires_at, canceled_at")
+      .is("canceled_at", null)
+      .in("status", ["QUOTED", "PENDING_PAYMENT"])
+      .or(`hold_expires_at.lt.${nowIso},expires_at.lt.${nowIso}`);
 
     if (selectError) {
-      console.error('Failed to fetch orders:', selectError)
-      return NextResponse.json({ error: 'Database error' }, { status: 500 })
+      logError("crons.cancel_expired.select_failed", {
+        requestId,
+        route,
+        errorCode: "CRON_SELECT_FAILED",
+        context: { message: selectError.message },
+      });
+      return apiError(500, {
+        error: "Database error",
+        code: "CRON_SELECT_FAILED",
+        requestId,
+      });
     }
 
     if (!ordersToCancel || ordersToCancel.length === 0) {
       return NextResponse.json({
-        message: 'No orders to cancel',
+        message: "No orders to cancel",
         cancelledCount: 0,
-      })
+        requestId,
+      });
     }
 
-    // 来店日時が過ぎた注文を履歴に移動
-    const historyInserts = ordersToCancel.map((order) => ({
-      id: order.id,
-      customer_name: order.customer_name,
-      email: order.email,
-      phone: order.phone,
-      zip_code: order.zip_code,
-      prefecture: order.prefecture,
-      city: order.city,
-      address: order.address,
-      building: order.building,
-      payment_method: order.payment_method,
-      items: order.items,
-      total: order.total,
-      store_visit_date: order.store_visit_date,
-      status: 'cancelled',
-      created_at: order.created_at,
-    }))
+    let cancelledCount = 0;
+    let skippedCount = 0;
+    for (const order of ordersToCancel) {
+      const isExpiredHold =
+        order.status === "QUOTED" &&
+        !!order.hold_expires_at &&
+        new Date(String(order.hold_expires_at)).getTime() < Date.now();
 
-    const { error: insertError } = await supabaseServer
-      .from('order_history')
-      .insert(historyInserts)
+      const reasonCode = isExpiredHold ? "EXPIRED_HOLD" : "EXPIRED_PAYMENT";
 
-    if (insertError) {
-      console.error('Failed to insert into history:', insertError)
-      return NextResponse.json({ error: 'Insert error' }, { status: 500 })
+      try {
+        await executeCancelOrderAction({
+          orderId: String(order.id),
+          expectedVersion: Number(order.version ?? 0),
+          reasonCode,
+          actorType: "cron",
+          actorId: "cron",
+          requestId,
+          idempotencyKey: `cron:${requestId}:${order.id}:${reasonCode}`,
+          adminNote: "cancel-expired-orders cron",
+        });
+        cancelledCount += 1;
+      } catch (error) {
+        if (
+          error instanceof OrderActionError &&
+          (error.code === "VERSION_CONFLICT" ||
+            error.code === "ALREADY_CANCELLED" ||
+            error.code === "ALREADY_COMPLETED")
+        ) {
+          skippedCount += 1;
+          continue;
+        }
+
+        throw error;
+      }
     }
 
-    // 元の注文を削除
-    const orderIds = ordersToCancel.map((o) => o.id)
-    const { error: deleteError } = await supabaseServer
-      .from('orders')
-      .delete()
-      .in('id', orderIds)
-
-    if (deleteError) {
-      console.error('Failed to delete orders:', deleteError)
-      return NextResponse.json({ error: 'Delete error' }, { status: 500 })
-    }
-
+    logInfo("crons.cancel_expired.success", {
+      requestId,
+      route,
+      context: { cancelledCount, skippedCount },
+    });
     return NextResponse.json({
-      message: 'Successfully cancelled expired store visit orders',
-      cancelledCount: ordersToCancel.length,
-    })
+      message: "Successfully cancelled expired quoted/pending-payment orders",
+      cancelledCount,
+      skippedCount,
+      requestId,
+    });
   } catch (error) {
-    console.error('Cron job error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    logError("crons.cancel_expired.unexpected", {
+      requestId,
+      route,
+      errorCode: "INTERNAL_SERVER_ERROR",
+      context: { message: error instanceof Error ? error.message : String(error) },
+    });
+    return apiError(500, {
+      error: "Internal server error",
+      code: "INTERNAL_SERVER_ERROR",
+      requestId,
+    });
   }
+}
+
+export async function POST(req: NextRequest) {
+  return executeCancelExpired(req);
+}
+
+export async function GET(req: NextRequest) {
+  const requestId = getRequestId(req);
+  if (!isGetCompatibilityRequest(req)) {
+    return apiError(
+      405,
+      {
+        error: "Method not allowed. Use POST.",
+        code: "METHOD_NOT_ALLOWED",
+        requestId,
+      },
+      { headers: { Allow: "POST" } }
+    );
+  }
+
+  return executeCancelExpired(req);
 }

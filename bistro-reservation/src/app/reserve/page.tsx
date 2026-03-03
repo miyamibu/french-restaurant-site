@@ -12,9 +12,17 @@ const tangerine = Tangerine({
 
 const menuHeadingSize = { base: 17, md: 45 };
 
-export default function ReservePage() {
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+function getFirstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function ReservePage({ searchParams }: { searchParams?: SearchParams }) {
+  const resolvedSearchParams = (await searchParams) ?? {};
   const defaultDate = formatJst(addDays(todayJst(), 1));
   const reservePageSpacing = { top:150, bottom: 80 }; // 上下余白の微調整(px)
+  const isAgentMode = getFirstParam(resolvedSearchParams.mode) === "agent";
 
   return (
     <div
@@ -33,11 +41,25 @@ export default function ReservePage() {
               "--menu-heading-size-md": `${menuHeadingSize.md}px`,
             } as Record<string, string>
           }
-        >
-          RESERVA
-        </h1>
+      >
+        RESERVA
+      </h1>
       </header>
-      <ReserveForm defaultDate={defaultDate} />
+      <ReserveForm
+        defaultDate={defaultDate}
+        initialDate={getFirstParam(resolvedSearchParams.date)}
+        initialPartySize={getFirstParam(resolvedSearchParams.partySize)}
+        initialCourse={getFirstParam(resolvedSearchParams.course)}
+        initialArrivalTime={getFirstParam(resolvedSearchParams.arrivalTime)}
+        afterAvailabilityNote={
+          isAgentMode
+            ? [
+                "AI経由の事前入力です。必要に応じて内容を確認・調整して送信できます。",
+                "氏名・電話番号などの個人情報は、URLクエリではなくこの画面かAPI本文で扱ってください。",
+              ]
+            : undefined
+        }
+      />
     </div>
   );
 }

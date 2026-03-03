@@ -25,7 +25,10 @@ export default function BusinessDaysPage() {
     e.preventDefault();
     const res = await fetch("/api/admin/business-days", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+      },
       body: JSON.stringify({ date, isClosed, note: note || null }),
     });
     if (res.ok) {

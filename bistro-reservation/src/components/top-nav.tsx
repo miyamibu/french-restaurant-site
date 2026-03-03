@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Instagram, Menu, ShoppingCart, X } from "lucide-react";
 import { Playfair_Display } from "next/font/google";
@@ -24,8 +24,12 @@ export function TopNav() {
   const pathname = usePathname();
   const showCartIcon = pathname === "/store" || (pathname.startsWith("/store/") && pathname !== "/store/cart");
 
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
   return (
-    <div className="relative">
+    <div className="relative pointer-events-auto">
       <div className="relative flex items-center justify-between rounded-full bg-white/80 px-4 py-2 shadow-sm backdrop-blur">
         <a
           href="https://www.instagram.com/"

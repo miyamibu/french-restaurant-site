@@ -19,21 +19,23 @@ const bodySerif = Noto_Serif_JP({
 function OrderCompleteContent() {
   const searchParams = useSearchParams();
   const method = searchParams.get("method");
+  const normalizedMethod =
+    method === "PAY_IN_STORE" || method === "cash-store" ? "PAY_IN_STORE" : "BANK_TRANSFER";
 
   const messages = {
-    "bank-transfer": {
+    BANK_TRANSFER: {
       title: "ご注文ありがとうございました",
       description:
         "メールで振込先口座情報をお送りいたします。ご入金確認後、商品を発送いたします。ご不明な点がございましたらお気軽にお問い合わせください。",
     },
-    "cash-store": {
+    PAY_IN_STORE: {
       title: "ご注文ありがとうございました",
       description:
         "ご来店予定日をメールでお知らせいただきます。商品はご来店予定日に合わせて用意してお待ちしております。",
     },
   };
 
-  const message = messages[method as keyof typeof messages] || messages["bank-transfer"];
+  const message = messages[normalizedMethod];
 
   return (
     <section
@@ -63,7 +65,7 @@ function OrderCompleteContent() {
 
           <div className="bg-white/60 p-6 rounded-lg border border-[#2f1b0f]">
             <p className="text-sm text-[#4a3121]">
-              {method === "bank-transfer"
+              {normalizedMethod === "BANK_TRANSFER"
                 ? "ご注文確認メールをお送りしております。メール内の振込先情報をご確認ください。"
                 : "ご注文確認メールをお送りしております。来店予定日の変更がございましたらお気軽にご連絡ください。"}
             </p>

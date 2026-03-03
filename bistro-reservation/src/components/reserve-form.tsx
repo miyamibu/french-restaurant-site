@@ -20,6 +20,7 @@ import {
   SelectOption,
   SelectTrigger,
 } from "@/components/select";
+import { CONTACT_PHONE_DISPLAY, CONTACT_MESSAGE } from "@/lib/contact";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,6 +28,10 @@ import { Textarea } from "@/components/ui/textarea";
 interface Props {
   defaultDate: string;
   afterAvailabilityNote?: string[];
+  initialDate?: string;
+  initialPartySize?: string;
+  initialCourse?: string;
+  initialArrivalTime?: string;
 }
 
 interface AvailabilityState {
@@ -67,16 +72,57 @@ const initialAvailability: AvailabilityState = {
   mainRemaining: 0,
   room1Available: false,
   room2Available: false,
-  callPhone: "09098297614",
-  callMessage: "お電話でお問い合わせください",
+  callPhone: CONTACT_PHONE_DISPLAY,
+  callMessage: CONTACT_MESSAGE,
 };
 
-export function ReserveForm({ defaultDate }: Props) {
+function sanitizeDate(value: string | undefined, fallback: string) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return fallback;
+  }
+
+  const parsed = parseISO(value);
+  return Number.isNaN(parsed.getTime()) ? fallback : value;
+}
+
+function sanitizePartySize(value: string | undefined) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed)) return 2;
+  return Math.min(12, Math.max(1, parsed));
+}
+
+function sanitizeArrivalTime(value: string | undefined) {
+  if (!value) return "";
+
+  const match = /^(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return "";
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    return "";
+  }
+
+  return value;
+}
+
+export function ReserveForm({
+  defaultDate,
+  afterAvailabilityNote,
+  initialDate,
+  initialPartySize,
+  initialCourse,
+  initialArrivalTime,
+}: Props) {
+  const defaultCourseValue = courseOptions[0].items[0].value;
+  const selectedInitialCourse = flatCourseOptions.some((item) => item.value === initialCourse)
+    ? (initialCourse as string)
+    : defaultCourseValue;
   const [form, setForm] = useState({
-    date: defaultDate,
-    partySize: 2,
-    course: courseOptions[0].items[0].value,
-    arrivalTime: "",
+    date: sanitizeDate(initialDate, defaultDate),
+    partySize: sanitizePartySize(initialPartySize),
+    course: selectedInitialCourse,
+    arrivalTime: sanitizeArrivalTime(initialArrivalTime),
     lastName: "",
     firstName: "",
     phone: "",
@@ -124,29 +170,25 @@ export function ReserveForm({ defaultDate }: Props) {
   useEffect(() => {
     let active = true;
     const monthStart = startOfMonth(calendarMonth);
-    const monthDays = getDaysInMonth(monthStart);
-    const dateList = Array.from({ length: monthDays }, (_, idx) =>
-      format(
-        new Date(monthStart.getFullYear(), monthStart.getMonth(), idx + 1),
-        "yyyy-MM-dd"
-      )
-    );
+    const monthKey = format(monthStart, "yyyy-MM");
 
-    Promise.all(
-      dateList.map(async (dateValue) => {
-        try {
-          const res = await fetch(`/api/availability?date=${dateValue}`);
-          if (!res.ok) return [dateValue, null] as const;
-          const data = (await res.json()) as AvailabilityState;
-          return [dateValue, data] as const;
-        } catch {
-          return [dateValue, null] as const;
-        }
+    fetch(`/api/availability/monthly?month=${monthKey}`)
+      .then(async (response) => {
+        if (!response.ok) return null;
+        const payload = (await response.json()) as {
+          month?: string;
+          days?: MonthlyAvailabilityMap;
+        };
+        return payload.days ?? null;
       })
-    ).then((entries) => {
-      if (!active) return;
-      setMonthlyAvailability(Object.fromEntries(entries));
-    });
+      .then((days) => {
+        if (!active) return;
+        setMonthlyAvailability(days ?? {});
+      })
+      .catch(() => {
+        if (!active) return;
+        setMonthlyAvailability({});
+      });
 
     return () => {
       active = false;
@@ -172,7 +214,10 @@ export function ReserveForm({ defaultDate }: Props) {
       const fullName = `${form.lastName} ${form.firstName}`.trim();
       const res = await fetch("/api/reservations", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+        },
         body: JSON.stringify({
           date: form.date,
           course: form.course,
@@ -224,6 +269,10 @@ export function ReserveForm({ defaultDate }: Props) {
   const calendarDayMarkerTopMargin = 10;
   const calendarDayGapX = 4;
   const calendarDayGapY = 4;
+  const calendarMonthNavButtonSize = 40;
+  const calendarMonthNavArrowFontSize = 32;
+  const calendarMonthNavArrowFontWeight = 600;
+  const calendarMonthNavArrowOffsetY = "-0.1cm";
   const formFieldRadius = 6;
   const reserveButtonKnobWidth = 110;
   const reserveButtonKnobHeight = 62;
@@ -236,8 +285,7 @@ export function ReserveForm({ defaultDate }: Props) {
   const infoInlineFontSize = 14;
   const infoInlineMessage = `貸し切りは10名以上でお申し込みください。
 当日も席が空いている場合がありますのでご連絡いただけたらと思います。`;
-  const cancelInlineMessage =
-    "キャンセルはお電話にてお願いいたします。電話番号：090-9829-7614";
+  const cancelInlineMessage = `キャンセルはお電話にてお願いいたします。電話番号：${CONTACT_PHONE_DISPLAY}`;
   const calendarDayMarkerHeight =
     Math.max(
       calendarDayMarkerNormalFontSize,
@@ -261,6 +309,14 @@ export function ReserveForm({ defaultDate }: Props) {
 
   return (
     <form onSubmit={submit} className="rounded-xl bg-white p-6 space-y-4">
+      {afterAvailabilityNote?.length ? (
+        <div className="space-y-2 rounded-xl border border-[#cfa96d]/50 bg-[#fff7e6] px-4 py-3 text-sm leading-6 text-[#4a3121]">
+          {afterAvailabilityNote.map((note) => (
+            <p key={note}>{note}</p>
+          ))}
+        </div>
+      ) : null}
+
       <section className="p-4">
         <div className="grid gap-6 md:grid-cols-[auto,minmax(0,1fr)] md:items-stretch">
           <div className="space-y-4">
@@ -276,7 +332,14 @@ export function ReserveForm({ defaultDate }: Props) {
                 <button
                   type="button"
                   onClick={() => setCalendarMonth((prev) => subMonths(prev, 1))}
-                  className="h-8 w-8 rounded-md border-0 text-[#4a3121] hover:bg-[#f8f2e6]"
+                  className="rounded-md border-0 text-[#4a3121] leading-none hover:bg-[#f8f2e6]"
+                  style={{
+                    width: `${calendarMonthNavButtonSize}px`,
+                    height: `${calendarMonthNavButtonSize}px`,
+                    fontSize: `${calendarMonthNavArrowFontSize}px`,
+                    fontWeight: calendarMonthNavArrowFontWeight,
+                    transform: `translateY(${calendarMonthNavArrowOffsetY})`,
+                  }}
                   aria-label="前月へ"
                 >
                   ‹
@@ -287,7 +350,14 @@ export function ReserveForm({ defaultDate }: Props) {
                 <button
                   type="button"
                   onClick={() => setCalendarMonth((prev) => addMonths(prev, 1))}
-                  className="h-8 w-8 rounded-md border-0 text-[#4a3121] hover:bg-[#f8f2e6]"
+                  className="rounded-md border-0 text-[#4a3121] leading-none hover:bg-[#f8f2e6]"
+                  style={{
+                    width: `${calendarMonthNavButtonSize}px`,
+                    height: `${calendarMonthNavButtonSize}px`,
+                    fontSize: `${calendarMonthNavArrowFontSize}px`,
+                    fontWeight: calendarMonthNavArrowFontWeight,
+                    transform: `translateY(${calendarMonthNavArrowOffsetY})`,
+                  }}
                   aria-label="次月へ"
                 >
                   ›

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Noto_Serif_JP, Tangerine } from "next/font/google";
 import { addToCart } from "@/lib/store-cart";
 
@@ -46,11 +46,39 @@ const productImages = [
   },
 ] as const;
 
-export default function ApronPurchasePage() {
+function clampQuantity(value: number) {
+  return Math.min(10, Math.max(1, value));
+}
+
+function parseRequestedQuantity(value: string | null) {
+  const parsed = Number.parseInt(value ?? "", 10);
+  if (!Number.isFinite(parsed)) return 1;
+  return clampQuantity(parsed);
+}
+
+function ApronPurchaseFallback() {
+  return (
+    <section
+      className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] flex min-h-[60vh] w-screen items-center justify-center bg-gradient-to-b from-[#f7ebd3] via-[#f1ddb5] to-[#e8c98f] px-4"
+      style={{ paddingTop: `${pageSpacing.top}px`, paddingBottom: `${pageSpacing.bottom}px` }}
+    >
+      <p className={`${bodySerif.className} text-sm text-[#4a3121]`}>読み込み中...</p>
+    </section>
+  );
+}
+
+function ApronPurchaseContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isAgentMode = searchParams.get("mode") === "agent";
+  const requestedQuantity = searchParams.get("qty");
   const [zoomImage, setZoomImage] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
+
+  useEffect(() => {
+    setQuantity(parseRequestedQuantity(requestedQuantity));
+  }, [requestedQuantity]);
 
   const prevImage = () => {
     setCurrentImageIndex((prev) => (prev === 0 ? productImages.length - 1 : prev - 1));
@@ -61,11 +89,11 @@ export default function ApronPurchasePage() {
   };
 
   const decreaseQuantity = () => {
-    setQuantity((prev) => Math.max(1, prev - 1));
+    setQuantity((prev) => clampQuantity(prev - 1));
   };
 
   const increaseQuantity = () => {
-    setQuantity((prev) => Math.min(10, prev + 1));
+    setQuantity((prev) => clampQuantity(prev + 1));
   };
 
   const currentImage = productImages[currentImageIndex];
@@ -82,7 +110,7 @@ export default function ApronPurchasePage() {
       },
       quantity,
     );
-    router.push("/store/cart");
+    router.push(isAgentMode ? "/store/cart?mode=agent" : "/store/cart");
   };
 
   return (
@@ -105,6 +133,18 @@ export default function ApronPurchasePage() {
           </h1>
         </header>
 
+        {isAgentMode ? (
+          <div className={`${bodySerif.className} mx-auto max-w-3xl rounded-3xl border border-[#cfa96d]/40 bg-white/90 px-6 py-5 text-[#4a3121] shadow-[0_16px_48px_rgba(47,27,15,0.08)]`}>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#8a6233]">
+              Warm Handoff
+            </p>
+            <p className="mt-3 text-sm leading-7">
+              AIが商品選定と数量の下準備を行いました。数量を確認し、次の画面でお客様ご自身が
+              ご注文内容の確認と最終送信を行ってください。
+            </p>
+          </div>
+        ) : null}
+
         <div className="grid items-start gap-8 lg:grid-cols-[1.15fr_1fr] lg:gap-3">
           <div className="relative mx-auto w-full max-w-[27rem] overflow-hidden rounded-sm bg-white lg:translate-x-[0.2cm]">
             <button
@@ -126,7 +166,7 @@ export default function ApronPurchasePage() {
                     src={currentImage.src}
                     alt={currentImage.alt}
                     fill
-                    className={currentImage.fit === "cover" ? "object-cover" : "object-contain p-4"}
+                    className={currentImage.fit === "contain" ? "object-contain p-4" : "object-cover"}
                     sizes="(max-width: 1280px) 100vw, 65vw"
                   />
                 )}
@@ -259,13 +299,16 @@ export default function ApronPurchasePage() {
                     カートに入れる
                   </button>
                 </div>
+                <p className="mt-5 text-base whitespace-nowrap text-[#4a3121]">
+                  お届けまで2〜3週間ほどお時間をいただきます。
+                </p>
               </form>
             </div>
           </aside>
         </div>
 
         <div className="text-center">
-          <Link href="/store" className={`${bodySerif.className} text-sm underline text-[#4a3121]`}>
+          <Link href="/store" className={`${bodySerif.className} text-lg underline text-[#4a3121]`}>
             商品一覧へ戻る
           </Link>
         </div>
@@ -296,5 +339,13 @@ export default function ApronPurchasePage() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+export default function ApronPurchasePage() {
+  return (
+    <Suspense fallback={<ApronPurchaseFallback />}>
+      <ApronPurchaseContent />
+    </Suspense>
   );
 }

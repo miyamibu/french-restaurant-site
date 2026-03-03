@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Route } from "next";
 import { prisma } from "@/lib/prisma";
 import { format, getDay, getDaysInMonth, startOfMonth } from "date-fns";
 import { formatJst } from "@/lib/dates";
@@ -16,10 +17,11 @@ function extractLastName(fullName: string): string {
 export default async function AdminReservations({
   searchParams,
 }: {
-  searchParams: { date?: string };
+  searchParams: Promise<{ date?: string }>;
 }) {
+  const resolvedSearchParams = await searchParams;
   const defaultDate = formatJst(new Date());
-  const date = searchParams.date || defaultDate;
+  const date = resolvedSearchParams.date || defaultDate;
   const statusFilter = {
     not: ReservationStatus.CANCELLED,
   } as const;
@@ -108,10 +110,10 @@ export default async function AdminReservations({
     calendarCells.push(null);
   }
   const dayLabels = ["日", "月", "火", "水", "木", "金", "土"] as const;
-  const buildDateHref = (dateStr: string) => {
+  const buildDateHref = (dateStr: string): Route => {
     const params = new URLSearchParams();
     params.set("date", dateStr);
-    return `/admin/reservations?${params.toString()}`;
+    return `/admin/reservations?${params.toString()}` as Route;
   };
 
   return (

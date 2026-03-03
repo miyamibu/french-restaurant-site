@@ -1,87 +1,197 @@
-# Bistro Joa 予約システム (Next.js + Prisma)
+# Bistro Joa 予約システム
 
-フレンチレストラン向けのオンライン予約・在庫管理・管理画面・通知を備えた Next.js (App Router) プロジェクトです。タイムゾーンは JST 固定で、日付キーは常に `YYYY-MM-DD`（JST基準）で扱います。
+Next.js App Router で構成した、レストラン予約 + オンラインストア + 管理画面のアプリです。  
+データストアは以下の二系統を維持しています。
 
-## セットアップ
+- 予約: Prisma + PostgreSQL
+- 注文: Supabase (`orders`, `order_history`, `bank_account`)
 
-1. Node.js 20+ を用意
-2. 依存インストール
-   ```bash
-   npm install
-   ```
-3. 環境変数を設定
-   ```bash
-   cp .env.example .env
-   # DATABASE_URL, ADMIN_BASIC_USER/PASS, STORE_NOTIFY_EMAIL, EMAIL_PROVIDER(resend|sendgrid), EMAIL_API_KEY, EMAIL_FROM を入力
-   ```
-4. Prisma migrate / seed
-   ```bash
-   npx prisma migrate dev --name init
-   npm run prisma:seed
-   ```
-5. 開発サーバ
-   ```bash
-   npm run dev
-   ```
+## 技術スタック
 
-## 主要エンドポイント
-
-- 公開サイト: `/`, `/menu`, `/photos`, `/reserve`, `/info`
-- 予約 API: `POST /api/reservations`
-- 空き状況 API: `GET /api/availability?date=YYYY-MM-DD`
-- 管理画面: `/admin/reservations`, `/admin/reservations/[id]`, `/admin/business-days`
-- 管理 API: `/api/admin/reservations`, `/api/admin/reservations/[id]`, `/api/admin/business-days`
-- Cron（前日通知の仕組み）: `POST /api/cron/remind`
-
-## ベーシック認証
-
-`/admin/*`, `/api/admin/*`, `/api/cron/*` は BASIC 認証で保護されています。`.env` の `ADMIN_BASIC_USER`, `ADMIN_BASIC_PASS` を設定してください。
-
-## 通知
-
-- 店側メール通知: Resend または SendGrid を `EMAIL_PROVIDER`, `EMAIL_API_KEY`, `STORE_NOTIFY_EMAIL` で設定。環境変数が無い場合は安全にスキップします。
-- `EMAIL_FROM` はプロバイダで認証済みのドメインのアドレスに設定してください（例: `no-reply@yourdomain.com`）。未設定の場合は `STORE_NOTIFY_EMAIL` を送信元として使用します。
-- LINE 前日通知: 仕組みのみ実装。トークン未設定時は `/api/cron/remind` が「SKIPPED_LINE_SETUP」で正常終了します。
-
-## テスト
-
-最低限のユースケーステストを `vitest` で用意しています。
-
-```bash
-npm run test
-```
-
-検証内容: 当日ブロック、3ヶ月超ブロック、メイン 12 席上限、来店時刻 17:30 以降。
-
-## 予約競合（同時アクセス）確認手順
-
-1. サーバを起動 (`npm run dev` または本番環境 URL を使用)
-2. 同じ日付で ROOM1 に対して 2 つのリクエストを同時送信し、一方が 200 / もう一方が 409 になることを確認
-   ```bash
-   # 例: Powershell で並列送信
-   1..2 | ForEach-Object { Start-Job { curl -s -X POST http://localhost:3000/api/reservations -H "Content-Type: application/json" -d '{"date":"2026-02-01","seatType":"ROOM1","partySize":2,"name":"test","phone":"090","arrivalTime":"17:30"}' } }
-   ```
-3. メイン席は `partySize` 合計が 12 を超えると 409 が返ることを確認
-4. 当日・3ヶ月超・休業日では 400/409 で弾かれ、`callPhone`/`callMessage` が返ることを確認
-
-## Cron の実行
-
-毎日 12:00 JST に以下を叩く想定です（BASIC 認証必須）。
-```bash
-curl -u "$ADMIN_BASIC_USER:$ADMIN_BASIC_PASS" -X POST https://your-domain/api/cron/remind
-```
+- Next.js 15 / React 18 / TypeScript
+- Prisma 5
+- Supabase JS 2
+- Tailwind CSS
+- Vitest
 
 ## ディレクトリ
 
-- `src/app` … App Router ページと API route handlers
-- `src/lib` … 日時処理、在庫判定、Prisma クライアント、メール送信、Basic 認証
-- `prisma/schema.prisma` … Reservation/BusinessDay/MenuItem/Photo モデル
-- `prisma/seed.ts` … メニュー/写真/休業日サンプル
-- `tests/` … ビジネスルールのユニットテスト
+- `src/app` App Router ページ + API route
+- `src/lib` ドメイン処理（認証、日付、API防御、validation、logger）
+- `prisma/` スキーマ・マイグレーション
+- `supabase/` SQL定義（DDL / RLS / 検証クエリ）
+- `tests/` ユニットテスト
 
-## 注意点
+## セットアップ
 
-- 日付判定は JST 基準で行い、当日・3ヶ月超・休業日は API 側でも必ず弾きます。
-- 個室は 2〜4 名のみ、ROOM1/ROOM2 指定で予約。1室=1予約でロックします。
-- 予約作成は PostgreSQL + Prisma の Serializable トランザクション（リトライ付き）で在庫を保護しています。
-- キャンセルは Web からは不可。ステータス変更は管理画面から行ってください。
+1. 依存関係
+```bash
+npm install
+```
+2. 環境変数
+```bash
+cp .env.example .env
+```
+3. Prisma
+```bash
+npx prisma migrate dev
+npm run prisma:seed
+```
+4. 開発起動
+```bash
+npm run dev
+```
+
+リリース運用手順は `docs/production-launch.md` を参照してください。
+
+## 環境変数
+
+主要変数は `.env.example` に記載しています。特に以下は必須です。
+
+- `DATABASE_URL`
+- `ADMIN_BASIC_USER`, `ADMIN_BASIC_PASS`
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+- `CRON_SECRET`
+- `CONTACT_PHONE_E164`, `CONTACT_PHONE_DISPLAY`, `CONTACT_MESSAGE`
+
+クライアント表示で連絡先を使う場合は以下も設定してください。
+
+- `NEXT_PUBLIC_CONTACT_PHONE_E164`
+- `NEXT_PUBLIC_CONTACT_PHONE_DISPLAY`
+- `NEXT_PUBLIC_CONTACT_MESSAGE`
+
+## 認証・保護範囲
+
+### Basic 認証（middleware）
+
+以下パスは Basic 認証で保護されます。
+
+- `/admin/:path*`
+- `/dashboard/:path*`
+- `/api/admin/:path*`
+- `/api/dashboard/:path*`
+
+### Cron 認証（Bearer）
+
+cron API は `Authorization: Bearer $CRON_SECRET` で保護されます。
+
+- `/api/crons/remind`
+- `/api/crons/cancel-expired-orders`
+- `/api/crons/delete-old-histories`
+- `/api/cron/remind`（旧互換。内部で `/api/crons/remind` に委譲）
+
+実行メソッドは `POST` を正とします。`GET` は Vercel Cron 互換のため、
+`x-vercel-cron: 1` ヘッダーまたは `?compat=1` がある場合のみ受け付けます。
+
+## API 防御方針（CORS/CSRF）
+
+書き込み API では共通防御 `src/lib/api-security.ts` を適用しています。
+
+- `Content-Type: application/json` 必須
+- `Origin` が同一オリジン（`request.nextUrl.origin` / `BASE_URL`）であること
+- `Sec-Fetch-Site: cross-site` を拒否
+- `X-Requested-With: XMLHttpRequest` は既定で必須
+- 例外: `POST /api/reservations` は AI エージェント互換のため未指定でも受け付ける
+
+対象（主な書き込み API）:
+
+- `POST /api/reservations`
+- `POST /api/orders`
+- `PUT|DELETE /api/dashboard/orders`
+- `PUT|DELETE /api/dashboard/bank-account`
+- `POST /api/admin/business-days`
+- `PATCH /api/admin/reservations/[id]`
+- `POST /api/pdf-to-image`
+
+## API 一覧（主要）
+
+- `GET /api/availability?date=YYYY-MM-DD`
+- `GET /api/availability/monthly?month=YYYY-MM`
+- `POST /api/reservations`
+- `POST /api/orders`
+- `GET|PUT|DELETE /api/dashboard/orders`
+- `GET|PUT|DELETE /api/dashboard/bank-account`
+- `GET|POST /api/admin/business-days`
+- `GET /api/admin/reservations`
+- `GET|PATCH /api/admin/reservations/[id]`
+- `POST /api/crons/remind`
+- `POST /api/crons/cancel-expired-orders`
+- `POST /api/crons/delete-old-histories`
+- `POST /api/pdf-to-image`
+
+## エラーレスポンス形式
+
+バリデーション/認可エラーは以下形式で統一しています。
+
+```json
+{
+  "error": "説明",
+  "code": "MACHINE_READABLE_CODE",
+  "fields": {
+    "field": "message"
+  }
+}
+```
+
+`fields` は入力エラー時のみ付与されます。  
+一部 API は障害追跡用に `requestId` を返します。
+
+## 予約・注文ルール
+
+- 予約は当日不可、最大3ヶ月先まで
+- メイン席合計 12 名まで、10名以上予約は貸切扱い
+- 来店時間は `17:30` 以降
+- 店頭支払い（`cash-store`）の来店日は 木〜日かつ 注文日+14〜30日
+- 顧客の自己キャンセル/変更 UI は未実装。連絡導線（電話）で運用
+
+## Prisma マイグレーション
+
+マイグレーション状態を確認:
+
+```bash
+npx prisma migrate status
+```
+
+`Photo.category` 追補は以下で管理:
+
+- `prisma/migrations/20260223224000_add_photo_category_column/migration.sql`
+
+## Supabase SQL 適用手順
+
+1. テーブル作成
+```sql
+-- supabase/schema.sql
+```
+2. RLS/Policy 適用
+```sql
+-- supabase/rls-policies.sql
+```
+3. 状態確認
+```sql
+-- supabase/verify.sql
+```
+
+## ログ運用（最小）
+
+`src/lib/logger.ts` で JSON ログ化しています。  
+主な項目:
+
+- `level`
+- `event`
+- `requestId`
+- `route`
+- `errorCode`
+- `context`
+
+障害時は `requestId` と `errorCode` を起点に API ログを確認してください。
+
+## テスト・リリース前チェック
+
+```bash
+npm run lint
+npm run test
+npm run build
+```
+
+全て成功してからデプロイしてください。
+

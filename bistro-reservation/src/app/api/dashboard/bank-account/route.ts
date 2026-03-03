@@ -1,138 +1,265 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { createCipheriv, createHash, randomBytes } from "crypto";
 import { isAuthorized } from "@/lib/basic-auth";
+import { env } from "@/lib/env";
 import { supabaseServer } from "@/lib/supabase-server";
+import { apiError, enforceWriteRequestSecurity } from "@/lib/api-security";
+import {
+  deleteBankAccountSchema,
+  saveBankAccountSchema,
+  zodFields,
+} from "@/lib/validation";
+import { getRequestId, logError, logInfo } from "@/lib/logger";
+
+function unauthorized(requestId: string) {
+  return apiError(401, {
+    error: "Unauthorized",
+    code: "UNAUTHORIZED",
+    requestId,
+  });
+}
+
+type BankAccountRecord = {
+  id: string;
+  bank_name: string;
+  branch_name: string;
+  account_type: string;
+  account_number: string;
+  account_holder: string;
+};
+
+function toPgBytea(value: Buffer) {
+  return `\\x${value.toString("hex")}`;
+}
+
+function getBankHistoryKey() {
+  const seed =
+    env.BANK_ACCOUNT_HISTORY_ENCRYPTION_KEY ||
+    env.SUPABASE_SERVICE_ROLE_KEY ||
+    env.ADMIN_BASIC_PASS ||
+    env.CRON_SECRET;
+
+  if (!seed) {
+    throw new Error("BANK_ACCOUNT_HISTORY_KEY_UNAVAILABLE");
+  }
+
+  return createHash("sha256").update(seed).digest();
+}
+
+function encryptBankHistoryValue(value: string) {
+  const nonce = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", getBankHistoryKey(), nonce);
+  const encrypted = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+
+  return {
+    ciphertext: toPgBytea(encrypted),
+    nonce: toPgBytea(nonce),
+    authTag: toPgBytea(authTag),
+  };
+}
+
+async function appendBankAccountHistory(input: {
+  bankAccount: BankAccountRecord;
+  actionType: "UPDATED" | "DELETED";
+  requestId: string;
+}) {
+  const encryptedAccountNumber = encryptBankHistoryValue(input.bankAccount.account_number);
+  const encryptedAccountHolder = encryptBankHistoryValue(input.bankAccount.account_holder);
+
+  const { error } = await supabaseServer.from("bank_account_history").insert([
+    {
+      bank_account_id: input.bankAccount.id,
+      action_type: input.actionType,
+      changed_by: "admin",
+      bank_name: input.bankAccount.bank_name,
+      branch_name: input.bankAccount.branch_name,
+      account_type: input.bankAccount.account_type,
+      account_number_last4: input.bankAccount.account_number.slice(-4),
+      account_number_enc: encryptedAccountNumber.ciphertext,
+      account_holder_enc: encryptedAccountHolder.ciphertext,
+      account_number_nonce: encryptedAccountNumber.nonce,
+      account_number_auth_tag: encryptedAccountNumber.authTag,
+      account_holder_nonce: encryptedAccountHolder.nonce,
+      account_holder_auth_tag: encryptedAccountHolder.authTag,
+      key_version: env.BANK_ACCOUNT_HISTORY_KEY_VERSION,
+    },
+  ]);
+
+  if (error) {
+    logError("dashboard.bank_account.history.failed", {
+      requestId: input.requestId,
+      route: "/api/dashboard/bank-account",
+      errorCode: "DASHBOARD_BANK_ACCOUNT_HISTORY_FAILED",
+      context: { message: error.message, actionType: input.actionType },
+    });
+    throw new Error("DASHBOARD_BANK_ACCOUNT_HISTORY_FAILED");
+  }
+}
 
 export async function GET(request: NextRequest) {
-  // 認証チェック
+  const requestId = getRequestId(request);
+  const route = "/api/dashboard/bank-account";
+
   if (!isAuthorized(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized(requestId);
   }
 
   try {
-    const { data, error } = await supabaseServer
-      .from("bank_account")
-      .select("*")
-      .limit(1);
-
+    const { data, error } = await supabaseServer.from("bank_account").select("*").limit(1);
     if (error) throw error;
-
     return NextResponse.json(data?.[0] || {});
   } catch (error) {
-    console.error("Failed to fetch bank account:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch bank account" },
-      { status: 500 }
-    );
+    logError("dashboard.bank_account.fetch.failed", {
+      requestId,
+      route,
+      errorCode: "DASHBOARD_BANK_ACCOUNT_FETCH_FAILED",
+      context: { message: error instanceof Error ? error.message : String(error) },
+    });
+    return apiError(500, {
+      error: "Failed to fetch bank account",
+      code: "DASHBOARD_BANK_ACCOUNT_FETCH_FAILED",
+      requestId,
+    });
   }
 }
 
 export async function PUT(request: NextRequest) {
-  // 認証チェック
+  const requestId = getRequestId(request);
+  const route = "/api/dashboard/bank-account";
+
   if (!isAuthorized(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized(requestId);
   }
 
-  try {
-    const body = await request.json();
-    const {
-      id,
-      bank_name,
-      branch_name,
-      account_type,
-      account_number,
-      account_holder,
-    } = body;
+  const securityError = enforceWriteRequestSecurity(request, { requestId });
+  if (securityError) return securityError;
 
-    if (
-      !bank_name ||
-      !branch_name ||
-      !account_type ||
-      !account_number ||
-      !account_holder
-    ) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
+  try {
+    const body = await request.json().catch(() => null);
+    const parsed = saveBankAccountSchema.safeParse(body);
+    if (!parsed.success) {
+      return apiError(400, {
+        error: "入力内容が不正です",
+        code: "VALIDATION_ERROR",
+        fields: zodFields(parsed.error),
+        requestId,
+      });
     }
 
-    let bankAccount;
+    const payload = parsed.data;
+    const { id, ...upsertData } = payload;
+
+    let bankAccount: BankAccountRecord | undefined;
     if (id) {
-      // Update
       const { data, error } = await supabaseServer
         .from("bank_account")
-        .update({
-          bank_name,
-          branch_name,
-          account_type,
-          account_number,
-          account_holder,
-        })
+        .update(upsertData)
         .eq("id", id)
         .select();
 
       if (error) throw error;
-      bankAccount = data?.[0];
+      bankAccount = data?.[0] as BankAccountRecord | undefined;
     } else {
-      // Create
       const { data, error } = await supabaseServer
         .from("bank_account")
-        .insert([
-          {
-            bank_name,
-            branch_name,
-            account_type,
-            account_number,
-            account_holder,
-          },
-        ])
+        .insert([upsertData])
         .select();
 
       if (error) throw error;
-      bankAccount = data?.[0];
+      bankAccount = data?.[0] as BankAccountRecord | undefined;
     }
 
+    if (bankAccount) {
+      await appendBankAccountHistory({
+        bankAccount,
+        actionType: "UPDATED",
+        requestId,
+      });
+    }
+
+    logInfo("dashboard.bank_account.saved", {
+      requestId,
+      route,
+      context: { id: bankAccount?.id ?? null },
+    });
     return NextResponse.json(bankAccount || {});
   } catch (error) {
-    console.error("Failed to save bank account:", error);
-    return NextResponse.json(
-      { error: "Failed to save bank account" },
-      { status: 500 }
-    );
+    logError("dashboard.bank_account.save.failed", {
+      requestId,
+      route,
+      errorCode: "DASHBOARD_BANK_ACCOUNT_SAVE_FAILED",
+      context: { message: error instanceof Error ? error.message : String(error) },
+    });
+    return apiError(500, {
+      error: "Failed to save bank account",
+      code: "DASHBOARD_BANK_ACCOUNT_SAVE_FAILED",
+      requestId,
+    });
   }
 }
 
 export async function DELETE(request: NextRequest) {
-  // 認証チェック
+  const requestId = getRequestId(request);
+  const route = "/api/dashboard/bank-account";
+
   if (!isAuthorized(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized(requestId);
   }
+
+  const securityError = enforceWriteRequestSecurity(request, { requestId });
+  if (securityError) return securityError;
 
   try {
-    const body = await request.json();
-    const { id } = body;
-
-    if (!id) {
-      return NextResponse.json(
-        { error: "Missing id" },
-        { status: 400 }
-      );
+    const body = await request.json().catch(() => null);
+    const parsed = deleteBankAccountSchema.safeParse(body);
+    if (!parsed.success) {
+      return apiError(400, {
+        error: "入力内容が不正です",
+        code: "VALIDATION_ERROR",
+        fields: zodFields(parsed.error),
+        requestId,
+      });
     }
 
-    const { error } = await supabaseServer
+    const { data: existing, error: fetchError } = await supabaseServer
       .from("bank_account")
-      .delete()
-      .eq("id", id);
+      .select("*")
+      .eq("id", parsed.data.id)
+      .maybeSingle();
 
+    if (fetchError) throw fetchError;
+
+    const { error } = await supabaseServer.from("bank_account").delete().eq("id", parsed.data.id);
     if (error) throw error;
 
+    if (existing) {
+      await appendBankAccountHistory({
+        bankAccount: existing as BankAccountRecord,
+        actionType: "DELETED",
+        requestId,
+      });
+    }
+
+    logInfo("dashboard.bank_account.deleted", {
+      requestId,
+      route,
+      context: { id: parsed.data.id },
+    });
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Failed to delete bank account:", error);
-    return NextResponse.json(
-      { error: "Failed to delete bank account" },
-      { status: 500 }
-    );
+    logError("dashboard.bank_account.delete.failed", {
+      requestId,
+      route,
+      errorCode: "DASHBOARD_BANK_ACCOUNT_DELETE_FAILED",
+      context: { message: error instanceof Error ? error.message : String(error) },
+    });
+    return apiError(500, {
+      error: "Failed to delete bank account",
+      code: "DASHBOARD_BANK_ACCOUNT_DELETE_FAILED",
+      requestId,
+    });
   }
 }
+

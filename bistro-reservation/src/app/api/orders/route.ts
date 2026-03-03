@@ -1,183 +1,314 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { supabaseServer } from '@/lib/supabase-server'
-import { sendOrderConfirmationEmail } from '@/lib/email'
-import { getPrismaClient } from '@/lib/prisma'
+import { NextRequest, NextResponse } from "next/server";
+import { addDays } from "date-fns";
+import { prisma } from "@/lib/prisma";
+import { supabaseServer } from "@/lib/supabase-server";
+import { sendOrderConfirmationEmail } from "@/lib/email";
+import { formatJst, isBusinessDay, jstDateFromString, todayJst } from "@/lib/dates";
+import { apiError, enforceWriteRequestSecurity } from "@/lib/api-security";
+import { createOrderSchema, zodFields } from "@/lib/validation";
+import {
+  buildIdempotencyHash,
+  createDefaultHumanConfirmationWindow,
+  createQuotedHoldExpiry,
+  executeSetPaymentMethodAction,
+  normalizeOrderPaymentMethod,
+  runIdempotentMutation,
+} from "@/lib/order-actions";
+import { getRequestId, logError, logInfo, logWarn } from "@/lib/logger";
 
-interface OrderItem {
-  id: string
-  name: string
-  price: number
-  quantity: number
+const STORE_VISIT_MIN_DAYS = 14;
+const STORE_VISIT_MAX_DAYS = 30;
+
+function getIdempotencyKey(request: NextRequest) {
+  return request.headers.get("idempotency-key")?.trim() ?? "";
 }
 
-interface CustomerInfo {
-  name: string
-  email: string
-  phone: string
-  zipCode: string
-  prefecture: string
-  city: string
-  address: string
-  building?: string
-}
+export async function POST(request: NextRequest) {
+  const requestId = getRequestId(request);
+  const route = "/api/orders";
 
-interface OrderRequest {
-  items: OrderItem[]
-  customerInfo: CustomerInfo
-  paymentMethod: 'bank-transfer' | 'cash-store'
-  total: number
-  storeVisitDate?: string
-}
+  const securityError = enforceWriteRequestSecurity(request, { requestId });
+  if (securityError) return securityError;
 
-export async function POST(req: NextRequest) {
+  const idempotencyKey = getIdempotencyKey(request);
+  if (!idempotencyKey) {
+    return apiError(400, {
+      ok: false,
+      error: "Idempotency-Key が必要です",
+      code: "MISSING_IDEMPOTENCY_KEY",
+      requestId,
+    });
+  }
+
   try {
-    const body: OrderRequest = await req.json()
-
-    // バリデーション
-    if (!body.items || body.items.length === 0) {
-      return NextResponse.json({ error: '商品がありません' }, { status: 400 })
+    const body = await request.json().catch(() => null);
+    const parsed = createOrderSchema.safeParse(body);
+    if (!parsed.success) {
+      return apiError(400, {
+        ok: false,
+        error: "入力内容が不正です",
+        code: "VALIDATION_ERROR",
+        fields: zodFields(parsed.error),
+        requestId,
+      });
     }
 
-    if (!body.customerInfo || !body.paymentMethod) {
-      return NextResponse.json({ error: '必須情報が不足しています' }, { status: 400 })
+    const input = parsed.data;
+    const normalizedPaymentMethod = normalizeOrderPaymentMethod(input.paymentMethod);
+
+    if (normalizedPaymentMethod === "PAY_IN_STORE" && input.storeVisitDate) {
+      let storeVisitDate: Date;
+      try {
+        storeVisitDate = jstDateFromString(input.storeVisitDate);
+      } catch {
+        return apiError(400, {
+          ok: false,
+          error: "来店日の形式が不正です",
+          code: "INVALID_STORE_VISIT_DATE",
+          requestId,
+        });
+      }
+
+      if (!isBusinessDay(storeVisitDate)) {
+        return apiError(400, {
+          ok: false,
+          error: "来店日は営業日（木〜日）を選択してください",
+          code: "STORE_VISIT_NOT_BUSINESS_DAY",
+          requestId,
+        });
+      }
+
+      const today = todayJst();
+      const minDate = addDays(today, STORE_VISIT_MIN_DAYS);
+      const maxDate = addDays(today, STORE_VISIT_MAX_DAYS);
+      if (storeVisitDate < minDate || storeVisitDate > maxDate) {
+        return apiError(400, {
+          ok: false,
+          error: "来店日は注文日から14日後〜30日後の範囲で選択してください",
+          code: "STORE_VISIT_OUT_OF_RANGE",
+          requestId,
+          fields: {
+            storeVisitDate: `${formatJst(minDate)} - ${formatJst(maxDate)}`,
+          },
+        });
+      }
     }
 
-    if (body.paymentMethod === 'cash-store' && !body.storeVisitDate) {
-      return NextResponse.json({ error: '来店日が指定されていません' }, { status: 400 })
-    }
+    const actorKey = `order-create:${input.customerInfo.email.toLowerCase()}:${input.customerInfo.phone}`;
+    const requestHash = buildIdempotencyHash({
+      items: input.items,
+      customerInfo: input.customerInfo,
+      paymentMethod: normalizedPaymentMethod,
+      total: input.total,
+      storeVisitDate: input.storeVisitDate ?? null,
+    });
 
-    // ⚠️ CRITICAL: サーバー側でメニュー情報を検証 & 合計金額を再計算
-    const prisma = getPrismaClient()
-    const menuItems = await prisma.menuItem.findMany({
-      where: {
-        id: {
-          in: body.items.map((item) => item.id),
-        },
-        isPublished: true, // 公開済みの商品のみ許可
+    const result = await runIdempotentMutation({
+      scope: "POST:/api/orders",
+      actorKey,
+      idempotencyKey,
+      requestHash,
+      successStatus: 201,
+      execute: async () => {
+        const menuItems = await prisma.menuItem.findMany({
+          where: {
+            id: { in: input.items.map((item) => item.id) },
+            isPublished: true,
+          },
+        });
+
+        if (menuItems.length !== input.items.length) {
+          throw new Error("INVALID_MENU_ITEM");
+        }
+
+        const calculatedTotal = input.items.reduce((sum, clientItem) => {
+          const menuItem = menuItems.find((m) => m.id === clientItem.id);
+          if (!menuItem) {
+            throw new Error(`Menu item not found: ${clientItem.id}`);
+          }
+          return sum + menuItem.price * clientItem.quantity;
+        }, 0);
+
+        if (calculatedTotal !== input.total) {
+          logWarn("orders.total.mismatch", {
+            requestId,
+            route,
+            errorCode: "ORDER_TOTAL_MISMATCH",
+            context: {
+              clientTotal: input.total,
+              calculatedTotal,
+              items: input.items,
+            },
+          });
+          throw new Error("ORDER_TOTAL_MISMATCH");
+        }
+
+        const validatedItems = input.items.map((clientItem) => {
+          const menuItem = menuItems.find((m) => m.id === clientItem.id)!;
+          return {
+            id: menuItem.id,
+            name: menuItem.title,
+            price: menuItem.price,
+            quantity: clientItem.quantity,
+          };
+        });
+
+        const { confirmedAt, confirmedExpiresAt } = createDefaultHumanConfirmationWindow();
+        const holdExpiresAt = createQuotedHoldExpiry();
+
+        const { data: insertedOrder, error: insertError } = await supabaseServer
+          .from("orders")
+          .insert([
+            {
+              customer_name: input.customerInfo.name,
+              email: input.customerInfo.email,
+              phone: input.customerInfo.phone,
+              zip_code: input.customerInfo.zipCode,
+              prefecture: input.customerInfo.prefecture,
+              city: input.customerInfo.city,
+              address: input.customerInfo.address,
+              building: input.customerInfo.building || null,
+              payment_method: null,
+              payment_reference: null,
+              items: validatedItems,
+              total: calculatedTotal,
+              store_visit_date: normalizedPaymentMethod === "PAY_IN_STORE" ? input.storeVisitDate : null,
+              hold_expires_at: holdExpiresAt,
+              expires_at: null,
+              human_confirmed_at: confirmedAt,
+              human_confirmed_expires_at: confirmedExpiresAt,
+              human_confirmed_by: "direct-web-checkout",
+              paid_at: null,
+              shipped_at: null,
+              canceled_at: null,
+              cancel_reason: null,
+              version: 0,
+              status: "QUOTED",
+            },
+          ])
+          .select()
+          .single();
+
+        if (insertError || !insertedOrder) {
+          logError("orders.create.db.failed", {
+            requestId,
+            route,
+            errorCode: "ORDER_DB_INSERT_FAILED",
+            context: { message: insertError?.message ?? "No order returned" },
+          });
+          throw new Error("ORDER_DB_INSERT_FAILED");
+        }
+
+        let finalOrder = insertedOrder as Record<string, unknown>;
+        if (normalizedPaymentMethod) {
+          let actionResponse;
+          try {
+            actionResponse = await executeSetPaymentMethodAction({
+              orderId: String(insertedOrder.id),
+              expectedVersion: 0,
+              paymentMethod: normalizedPaymentMethod,
+              storeVisitDate: input.storeVisitDate ?? null,
+              actorType: "user",
+              actorId: actorKey,
+              requestId,
+              idempotencyKey: `${idempotencyKey}:SET_PAYMENT_METHOD`,
+            });
+          } catch (error) {
+            await supabaseServer
+              .from("orders")
+              .delete()
+              .eq("id", insertedOrder.id)
+              .eq("status", "QUOTED")
+              .eq("version", 0);
+
+            throw error;
+          }
+
+          finalOrder =
+            (actionResponse.order as Record<string, unknown> | undefined) ??
+            finalOrder;
+        }
+
+        if (normalizedPaymentMethod) {
+          sendOrderConfirmationEmail(
+            input.customerInfo,
+            validatedItems,
+            calculatedTotal,
+            normalizedPaymentMethod,
+            input.storeVisitDate
+          ).catch((emailError) => {
+            logError("orders.email.failed", {
+              requestId,
+              route,
+              errorCode: "ORDER_EMAIL_SEND_FAILED",
+              context: {
+                orderId: String(insertedOrder.id),
+                message: emailError instanceof Error ? emailError.message : String(emailError),
+              },
+            });
+          });
+        }
+
+        logInfo("orders.create.success", {
+          requestId,
+          route,
+          context: {
+            orderId: insertedOrder.id,
+            paymentMethod: normalizedPaymentMethod,
+            total: calculatedTotal,
+          },
+        });
+
+        return {
+          ok: true,
+          message: "Order created successfully",
+          order: finalOrder,
+          requestId,
+        };
       },
-    })
+    });
 
-    // 送信されたすべての商品がメニューに存在するか確認
-    if (menuItems.length !== body.items.length) {
-      return NextResponse.json(
-        { error: '無効な商品が含まれています' },
-        { status: 400 }
-      )
-    }
-
-    // サーバー側で合計金額を再計算
-    const calculatedTotal = body.items.reduce((sum, clientItem) => {
-      const menuItem = menuItems.find((m) => m.id === clientItem.id)
-      if (!menuItem) {
-        throw new Error(`Menu item ${clientItem.id} not found`)
-      }
-
-      // クライアント送信の数量が正数か確認
-      if (!clientItem.quantity || clientItem.quantity <= 0 || !Number.isInteger(clientItem.quantity)) {
-        throw new Error(`Invalid quantity for item ${clientItem.id}`)
-      }
-
-      // サーバー側の正しい価格で計算
-      return sum + menuItem.price * clientItem.quantity
-    }, 0)
-
-    // クライアント送信の合計とサーバー計算の合計が一致するか確認
-    if (calculatedTotal !== body.total) {
-      console.warn(
-        `Order total mismatch: client=${body.total}, calculated=${calculatedTotal}`,
-        { items: body.items }
-      )
-      return NextResponse.json(
-        {
-          error: '注文合計金額が正確ではありません',
-          details: '商品価格または数量が変更されている可能性があります',
-        },
-        { status: 400 }
-      )
-    }
-
-    // 正しい価格情報でアイテムリストを再構築
-    const validatedItems = body.items.map((clientItem) => {
-      const menuItem = menuItems.find((m) => m.id === clientItem.id)!
-      return {
-        id: menuItem.id,
-        name: menuItem.title,
-        price: menuItem.price, // サーバー側の正しい価格
-        quantity: clientItem.quantity,
-      }
-    })
-
-    // 銀行口座情報を取得（銀行振込の場合）
-    let bankAccount = null
-    if (body.paymentMethod === 'bank-transfer') {
-      const { data, error } = await supabaseServer.from('bank_account').select('*').limit(1)
-      if (error) {
-        console.error('Failed to fetch bank account:', error)
-      } else {
-        bankAccount = data?.[0]
-      }
-    }
-
-    // 注文情報をデータベースに保存（検証済みのデータを使用）
-    const { data: order, error: orderError } = await supabaseServer
-      .from('orders')
-      .insert([
-        {
-          customer_name: body.customerInfo.name,
-          email: body.customerInfo.email,
-          phone: body.customerInfo.phone,
-          zip_code: body.customerInfo.zipCode,
-          prefecture: body.customerInfo.prefecture,
-          city: body.customerInfo.city,
-          address: body.customerInfo.address,
-          building: body.customerInfo.building || null,
-          payment_method: body.paymentMethod,
-          items: validatedItems, // クライアント送信のitemsではなく、検証済みのitemsを使用
-          total: calculatedTotal, // クライアント送信のtotalではなく、サーバー計算のtotalを使用
-          store_visit_date: body.paymentMethod === 'cash-store' ? body.storeVisitDate : null,
-          status: 'unconfirmed',
-        },
-      ])
-      .select()
-
-    if (orderError) {
-      console.error('Database error:', orderError)
-      return NextResponse.json({ error: '注文の保存に失敗しました' }, { status: 500 })
-    }
-
-    // メール送信（検証済みのデータを使用）
-    try {
-      await sendOrderConfirmationEmail(
-        body.customerInfo,
-        validatedItems,
-        calculatedTotal,
-        body.paymentMethod,
-        body.storeVisitDate,
-        bankAccount
-      )
-    } catch (emailError) {
-      console.error('Email send error:', emailError)
-      // メール送信失敗時も注文は保存されているため、エラーレスポンスは返さない
-    }
-
-    return NextResponse.json(
-      {
-        message: 'Order created successfully',
-        order: order?.[0],
-      },
-      { status: 201 }
-    )
+    return NextResponse.json(result.body, { status: result.status });
   } catch (error) {
-    console.error('API error:', error)
-    
-    // 検証エラーの場合は400を返す
-    if (error instanceof Error && error.message.includes('Invalid')) {
-      return NextResponse.json(
-        { error: 'Invalid order data: ' + error.message },
-        { status: 400 }
-      )
+    const message = error instanceof Error ? error.message : String(error);
+    if (message === "INVALID_MENU_ITEM") {
+      return apiError(400, {
+        ok: false,
+        error: "無効な商品が含まれています",
+        code: "INVALID_MENU_ITEM",
+        requestId,
+      });
     }
-    
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+
+    if (message === "ORDER_TOTAL_MISMATCH") {
+      return apiError(400, {
+        ok: false,
+        error: "注文合計金額が正確ではありません",
+        code: "ORDER_TOTAL_MISMATCH",
+        requestId,
+      });
+    }
+
+    if (message === "ORDER_DB_INSERT_FAILED") {
+      return apiError(500, {
+        ok: false,
+        error: "注文の保存に失敗しました",
+        code: "ORDER_DB_INSERT_FAILED",
+        requestId,
+      });
+    }
+
+    logError("orders.create.unexpected", {
+      requestId,
+      route,
+      errorCode: "INTERNAL_SERVER_ERROR",
+      context: { message },
+    });
+    return apiError(500, {
+      ok: false,
+      error: "Internal server error",
+      code: "INTERNAL_SERVER_ERROR",
+      requestId,
+    });
   }
 }

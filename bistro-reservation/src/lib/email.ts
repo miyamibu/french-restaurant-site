@@ -1,5 +1,6 @@
 import { Reservation } from "@prisma/client";
 import { parseReservationNote } from "@/lib/reservation-note";
+import { env } from "@/lib/env";
 
 interface ReservationEmailPayload {
   reservation: Reservation;
@@ -7,12 +8,15 @@ interface ReservationEmailPayload {
 }
 
 // 送信元アドレスはプロバイダで認証済みのドメインを使うこと
-const defaultFrom = process.env.EMAIL_FROM ?? process.env.STORE_NOTIFY_EMAIL ?? "no-reply@example.com";
+const defaultFrom = env.EMAIL_FROM ?? env.STORE_NOTIFY_EMAIL ?? "no-reply@example.com";
 
 export async function sendReservationEmail({ reservation, adminUrl }: ReservationEmailPayload) {
-  const provider = process.env.EMAIL_PROVIDER;
-  const apiKey = process.env.EMAIL_API_KEY;
-  const to = process.env.STORE_NOTIFY_EMAIL;
+  const provider = env.EMAIL_PROVIDER;
+  const apiKey =
+    provider === "resend"
+      ? env.RESEND_API_KEY ?? env.EMAIL_API_KEY
+      : env.EMAIL_API_KEY;
+  const to = env.STORE_NOTIFY_EMAIL;
   if (!provider || !apiKey || !to) {
     console.info("Email skipped: provider/apiKey/to missing", { provider: !!provider, apiKey: !!apiKey, to: !!to });
     return { skipped: true, reason: "MISSING_ENV" as const };
@@ -98,12 +102,12 @@ export async function sendOrderConfirmationEmail(
   customerInfo: CustomerInfo,
   items: OrderItem[],
   total: number,
-  paymentMethod: 'bank-transfer' | 'cash-store',
+  paymentMethod: 'bank-transfer' | 'cash-store' | 'BANK_TRANSFER' | 'PAY_IN_STORE',
   storeVisitDate?: string,
   bankAccount?: BankAccount
 ) {
-  const storeName = process.env.STORE_NAME || 'Bistro 104'
-  const apiKey = process.env.RESEND_API_KEY
+  const storeName = env.STORE_NAME || "Bistro 104"
+  const apiKey = env.RESEND_API_KEY ?? env.EMAIL_API_KEY
 
   if (!apiKey) {
     console.error('RESEND_API_KEY is not set')
@@ -127,7 +131,7 @@ export async function sendOrderConfirmationEmail(
       .join('')
 
     const paymentInfo =
-      paymentMethod === 'bank-transfer'
+      paymentMethod === 'bank-transfer' || paymentMethod === 'BANK_TRANSFER'
         ? `
       <h3 style="color: #2f1b0f; margin-top: 20px;">お振込先</h3>
       <table style="width: 100%; border-collapse: collapse;">
@@ -237,7 +241,7 @@ export async function sendOrderConfirmationEmail(
     })
 
     // 店舗スタッフにメール送信
-    const adminEmail = process.env.ADMIN_EMAIL
+    const adminEmail = env.ADMIN_EMAIL
     if (adminEmail) {
       const staffHtml = `
         <h2>新しい注文が入りました</h2>
@@ -265,8 +269,8 @@ export async function sendOrderConfirmationEmail(
           </tbody>
         </table>
         <h3>支払い方法</h3>
-        <p>${paymentMethod === 'bank-transfer' ? '銀行振込' : '来店時支払い'}</p>
-        ${paymentMethod === 'cash-store' ? `<p><strong>来店予定日:</strong> ${storeVisitDate}</p>` : ''}
+        <p>${paymentMethod === 'bank-transfer' || paymentMethod === 'BANK_TRANSFER' ? '銀行振込' : '来店時支払い'}</p>
+        ${paymentMethod === 'cash-store' || paymentMethod === 'PAY_IN_STORE' ? `<p><strong>来店予定日:</strong> ${storeVisitDate}</p>` : ''}
       `
 
       await resend.emails.send({

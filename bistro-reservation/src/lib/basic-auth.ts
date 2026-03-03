@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { env } from "@/lib/env";
 
 export function parseBasicAuthHeader(header: string | null) {
   if (!header || !header.startsWith("Basic ")) return null;
@@ -8,13 +9,26 @@ export function parseBasicAuthHeader(header: string | null) {
   return { user, pass };
 }
 
+function safeEqual(left: string, right: string) {
+  const maxLength = Math.max(left.length, right.length);
+  let mismatch = left.length === right.length ? 0 : 1;
+
+  for (let index = 0; index < maxLength; index += 1) {
+    const leftCode = index < left.length ? left.charCodeAt(index) : 0;
+    const rightCode = index < right.length ? right.charCodeAt(index) : 0;
+    mismatch |= leftCode ^ rightCode;
+  }
+
+  return mismatch === 0;
+}
+
 export function isAuthorized(request: NextRequest) {
   const creds = parseBasicAuthHeader(request.headers.get("authorization"));
   if (!creds) return false;
-  const expectedUser = process.env.ADMIN_BASIC_USER;
-  const expectedPass = process.env.ADMIN_BASIC_PASS;
+  const expectedUser = env.ADMIN_BASIC_USER;
+  const expectedPass = env.ADMIN_BASIC_PASS;
   if (!expectedUser || !expectedPass) return false;
-  return creds.user === expectedUser && creds.pass === expectedPass;
+  return safeEqual(creds.user ?? "", expectedUser) && safeEqual(creds.pass ?? "", expectedPass);
 }
 
 export function unauthorized() {

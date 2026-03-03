@@ -1,74 +1,105 @@
-export type StoreCartItem = {
+"use client";
+
+export interface StoreCartItem {
   id: string;
   name: string;
   price: number;
   image: string;
   quantity: number;
-};
-
-const STORE_CART_KEY = "bistro_store_cart_v1";
-
-function isValidCartItem(value: unknown): value is StoreCartItem {
-  if (!value || typeof value !== "object") return false;
-  const item = value as Partial<StoreCartItem>;
-  return (
-    typeof item.id === "string" &&
-    typeof item.name === "string" &&
-    typeof item.price === "number" &&
-    Number.isFinite(item.price) &&
-    typeof item.image === "string" &&
-    typeof item.quantity === "number" &&
-    Number.isInteger(item.quantity) &&
-    item.quantity > 0
-  );
 }
 
-export function getCartItems(): StoreCartItem[] {
-  if (typeof window === "undefined") return [];
+const STORAGE_KEY = "bistro_store_cart";
 
+/**
+ * Format amount to Japanese Yen string (e.g., "¥10,000")
+ */
+export function formatYen(amount: number): string {
+  return new Intl.NumberFormat("ja-JP", {
+    style: "currency",
+    currency: "JPY",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+/**
+ * Get all cart items from localStorage
+ */
+export function getCartItems(): StoreCartItem[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
   try {
-    const raw = window.localStorage.getItem(STORE_CART_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isValidCartItem);
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
   } catch {
+    console.error("Failed to parse cart from localStorage");
     return [];
   }
 }
 
-export function saveCartItems(items: StoreCartItem[]) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORE_CART_KEY, JSON.stringify(items));
+/**
+ * Save cart items to localStorage
+ */
+function saveCart(items: StoreCartItem[]): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  } catch {
+    console.error("Failed to save cart to localStorage");
+  }
 }
 
+/**
+ * Add item to cart or increase quantity if already exists
+ */
 export function addToCart(
-  item: Omit<StoreCartItem, "quantity">,
-  quantity: number,
-): StoreCartItem[] {
-  const qty = Math.max(1, Math.floor(quantity));
-  const current = getCartItems();
-  const existingIndex = current.findIndex((cartItem) => cartItem.id === item.id);
+  product: Omit<StoreCartItem, "quantity">,
+  quantity: number = 1
+): void {
+  const items = getCartItems();
+  const existing = items.find((item) => item.id === product.id);
 
-  if (existingIndex >= 0) {
-    const next = [...current];
-    next[existingIndex] = {
-      ...next[existingIndex],
-      quantity: next[existingIndex].quantity + qty,
-    };
-    saveCartItems(next);
-    return next;
+  if (existing) {
+    existing.quantity += quantity;
+  } else {
+    items.push({
+      ...product,
+      quantity,
+    });
   }
 
-  const next = [...current, { ...item, quantity: qty }];
-  saveCartItems(next);
-  return next;
+  saveCart(items);
 }
 
-export function formatYen(value: number): string {
-  return new Intl.NumberFormat("ja-JP", {
-    style: "currency",
-    currency: "JPY",
-    maximumFractionDigits: 0,
-  }).format(value);
+/**
+ * Remove item from cart by ID
+ */
+export function removeFromCart(itemId: string): void {
+  const items = getCartItems();
+  const filtered = items.filter((item) => item.id !== itemId);
+  saveCart(filtered);
+}
+
+/**
+ * Clear all items from cart
+ */
+export function clearCart(): void {
+  saveCart([]);
+}
+
+/**
+ * Get total cart value
+ */
+export function getCartTotal(): number {
+  return getCartItems().reduce((sum, item) => sum + item.price * item.quantity, 0);
+}
+
+/**
+ * Get total item count
+ */
+export function getCartItemCount(): number {
+  return getCartItems().reduce((sum, item) => sum + item.quantity, 0);
 }

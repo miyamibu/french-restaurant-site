@@ -4,40 +4,79 @@ import { prisma } from "@/lib/prisma";
 import { isArrivalTimeValid, MAIN_CAPACITY } from "@/lib/availability";
 import { jstDateFromString, isSameOrBeforeToday, isBeyondRange } from "@/lib/dates";
 import { sendReservationEmail } from "@/lib/email";
+import { createReservationSchema, zodFields } from "@/lib/validation";
+import { apiError, enforceWriteRequestSecurity } from "@/lib/api-security";
+import { getContactPayload } from "@/lib/contact";
+import { env } from "@/lib/env";
+import { getRequestId, logError, logInfo } from "@/lib/logger";
 
-const callPhone = "09098297614";
-const callMessage = `お電話でお問い合わせください：${callPhone}`;
 const RETRIES = 3;
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const { date, partySize, arrivalTime, name, phone, note, lineUserId } = body ?? {};
+  const requestId = getRequestId(request);
+  const contact = getContactPayload();
 
-  if (!date || !partySize || !name || !phone) {
-    return NextResponse.json({ reason: "INVALID_INPUT", callPhone, callMessage }, { status: 400 });
+  const securityError = enforceWriteRequestSecurity(request, {
+    requestId,
+    requireRequestedWith: false,
+  });
+  if (securityError) return securityError;
+
+  const body = await request.json().catch(() => null);
+  const parsed = createReservationSchema.safeParse(body);
+  if (!parsed.success) {
+    return apiError(400, {
+      error: "入力内容が不正です",
+      code: "VALIDATION_ERROR",
+      fields: zodFields(parsed.error),
+      requestId,
+      ...contact,
+    });
   }
+
+  const { date, partySize, arrivalTime, name, phone, note, lineUserId, course } = parsed.data;
+  const reservationNote = [course ? `コース: ${course}` : null, note]
+    .filter(Boolean)
+    .join("\n") || null;
   const partyCount = Number(partySize);
-  if (Number.isNaN(partyCount) || partyCount < 1) {
-    return NextResponse.json({ reason: "INVALID_INPUT", callPhone, callMessage }, { status: 400 });
-  }
 
   let parsedDate: Date;
   try {
     parsedDate = jstDateFromString(date);
   } catch {
-    return NextResponse.json({ reason: "INVALID_DATE", callPhone, callMessage }, { status: 400 });
+    return apiError(400, {
+      error: "日付形式が不正です",
+      code: "INVALID_DATE",
+      requestId,
+      ...contact,
+    });
   }
 
   if (isSameOrBeforeToday(parsedDate)) {
-    return NextResponse.json({ reason: "SAME_DAY_BLOCKED", callPhone, callMessage }, { status: 400 });
+    return apiError(400, {
+      error: "当日のオンライン予約は受け付けていません",
+      code: "SAME_DAY_BLOCKED",
+      requestId,
+      ...contact,
+    });
   }
 
   if (isBeyondRange(parsedDate)) {
-    return NextResponse.json({ reason: "OUT_OF_RANGE", callPhone, callMessage }, { status: 400 });
+    return apiError(400, {
+      error: "予約可能期間外の日付です",
+      code: "OUT_OF_RANGE",
+      requestId,
+      ...contact,
+    });
   }
 
   if (!isArrivalTimeValid(arrivalTime)) {
-    return NextResponse.json({ reason: "INVALID_ARRIVAL_TIME", callPhone, callMessage }, { status: 400 });
+    return apiError(400, {
+      error: "来店時間が不正です",
+      code: "INVALID_ARRIVAL_TIME",
+      requestId,
+      ...contact,
+    });
   }
 
   for (let attempt = 1; attempt <= RETRIES; attempt++) {
@@ -81,7 +120,7 @@ export async function POST(request: NextRequest) {
               arrivalTime: arrivalTime ?? null,
               name,
               phone,
-              note: note ?? null,
+              note: reservationNote,
               status: ReservationStatus.CONFIRMED,
               lineUserId: lineUserId ?? null,
             },
@@ -92,15 +131,34 @@ export async function POST(request: NextRequest) {
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
       );
 
-      const adminLink = `${process.env.BASE_URL ?? ""}/admin/reservations/${reservation.id}`;
+      const adminLink = env.BASE_URL ? `${env.BASE_URL}/admin/reservations/${reservation.id}` : "";
       sendReservationEmail({ reservation, adminUrl: adminLink }).catch((err) => {
-        console.error("Email send failed", err);
+        logError("reservation.email.failed", {
+          requestId,
+          route: "/api/reservations",
+          errorCode: "EMAIL_SEND_FAILED",
+          context: {
+            reservationId: reservation.id,
+            error: err instanceof Error ? err.message : String(err),
+          },
+        });
+      });
+
+      logInfo("reservation.created", {
+        requestId,
+        route: "/api/reservations",
+        context: {
+          reservationId: reservation.id,
+          date: reservation.date,
+          partySize: reservation.partySize,
+        },
       });
 
       return NextResponse.json({
         reservationId: reservation.id,
         summary: `${reservation.date} ${reservation.partySize}名で承りました。`,
-        adminLink,
+        adminLink: adminLink || undefined,
+        requestId,
       });
     } catch (error: unknown) {
       const message =
@@ -113,15 +171,51 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      let reason = "UNKNOWN";
-      if (message.includes("CLOSED")) reason = "CLOSED";
-      else if (message.includes("MAIN_FULL")) reason = "MAIN_FULL";
-      else if (message.includes("BANQUET_LOCKED") || message.includes("BANQUET_NEEDS_EMPTY"))
-        reason = "MAIN_FULL";
+      let code = "RESERVATION_CONFLICT";
+      let errorMessage = "予約枠が埋まっています";
+      let status = 409;
 
-      return NextResponse.json({ reason, callPhone, callMessage }, { status: 409 });
+      if (message.includes("CLOSED")) {
+        code = "CLOSED";
+        errorMessage = "休業日のため予約できません";
+      } else if (message.includes("MAIN_FULL")) {
+        code = "MAIN_FULL";
+        errorMessage = "満席のため予約できません";
+      } else if (message.includes("BANQUET_LOCKED") || message.includes("BANQUET_NEEDS_EMPTY")) {
+        code = "BANQUET_CONFLICT";
+        errorMessage = "貸切予約の都合で予約できません";
+      } else if (!isRetryable) {
+        code = "UNKNOWN_ERROR";
+        errorMessage = "予約処理に失敗しました";
+        status = 500;
+      }
+
+      logError("reservation.create.failed", {
+        requestId,
+        route: "/api/reservations",
+        errorCode: code,
+        context: { attempt, message },
+      });
+
+      return apiError(status, {
+        error: errorMessage,
+        code,
+        requestId,
+        ...contact,
+      });
     }
   }
 
-  return NextResponse.json({ reason: "RETRY_EXCEEDED", callPhone, callMessage }, { status: 500 });
+  logError("reservation.retry.exceeded", {
+    requestId,
+    route: "/api/reservations",
+    errorCode: "RETRY_EXCEEDED",
+  });
+
+  return apiError(500, {
+    error: "予約処理が混み合っています。時間をおいてお試しください",
+    code: "RETRY_EXCEEDED",
+    requestId,
+    ...contact,
+  });
 }

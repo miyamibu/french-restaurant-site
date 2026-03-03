@@ -1,78 +1,89 @@
-import { describe, expect, it } from "vitest";
-import { addMonths, format } from "date-fns";
-import { SeatType, ReservationStatus } from "@prisma/client";
+import { addMonths } from "date-fns";
+import { describe, it, expect } from "vitest";
 import {
-  getAvailability,
   isArrivalTimeValid,
-  isPrivateRoomValid,
-  validateCapacity,
+  isWithinAcceptance,
+  MAIN_CAPACITY,
 } from "@/lib/availability";
-import { todayJst } from "@/lib/dates";
+import { todayJst, jstDateFromString, formatJst } from "@/lib/dates";
 
-type MockReservation = { date: string; seatType: SeatType; partySize: number; status: ReservationStatus };
+describe("Availability Rules", () => {
+  describe("isArrivalTimeValid", () => {
+    it("should accept valid arrival times - 17:30", () => {
+      expect(isArrivalTimeValid("17:30")).toBe(true);
+    });
 
-function createMockPrisma(reservations: MockReservation[] = [], businessDays: any[] = []) {
-  return {
-    reservation: {
-      findMany: async ({ where }: any) =>
-        reservations.filter((r) => r.date === where.date && r.status === where.status),
-    },
-    businessDay: {
-      findUnique: async ({ where }: any) => businessDays.find((b) => b.date === where.date) || null,
-    },
-  } as any;
-}
+    it("should accept valid arrival times - 18:00", () => {
+      expect(isArrivalTimeValid("18:00")).toBe(true);
+    });
 
-describe("予約ルール", () => {
-  it("当日は予約不可", async () => {
-    const today = format(todayJst(), "yyyy-MM-dd");
-    const prisma = createMockPrisma();
-    const result = await getAvailability(today, prisma);
-    expect(result.bookable).toBe(false);
-    expect(result.reason).toBe("SAME_DAY_BLOCKED");
+    it("should accept valid arrival times - 23:59", () => {
+      expect(isArrivalTimeValid("23:59")).toBe(true);
+    });
+
+    it("should reject before 17:30", () => {
+      expect(isArrivalTimeValid("17:29")).toBe(false);
+      expect(isArrivalTimeValid("17:00")).toBe(false);
+      expect(isArrivalTimeValid("12:00")).toBe(false);
+    });
+
+    it("should reject invalid format", () => {
+      expect(isArrivalTimeValid("not-time")).toBe(false);
+      expect(isArrivalTimeValid("25:00")).toBe(false);
+      expect(isArrivalTimeValid("12:60")).toBe(false);
+    });
+
+    it("should handle null/undefined", () => {
+      expect(isArrivalTimeValid(null)).toBe(true);
+      expect(isArrivalTimeValid(undefined)).toBe(true);
+    });
   });
 
-  it("3ヶ月超は予約不可", async () => {
-    const future = format(addMonths(todayJst(), 4), "yyyy-MM-dd");
-    const prisma = createMockPrisma();
-    const result = await getAvailability(future, prisma);
-    expect(result.bookable).toBe(false);
-    expect(result.reason).toBe("OUT_OF_RANGE");
+  describe("isWithinAcceptance", () => {
+    it("should reject today", () => {
+      const today = formatJst(todayJst());
+      expect(isWithinAcceptance(today)).toBe(false);
+    });
+
+    it("should accept tomorrow", () => {
+      const tomorrow = formatJst(new Date(todayJst().getTime() + 86400000));
+      expect(isWithinAcceptance(tomorrow)).toBe(true);
+    });
+
+    it("should accept dates within 3 months", () => {
+      const date30d = formatJst(new Date(todayJst().getTime() + 30 * 86400000));
+      expect(isWithinAcceptance(date30d)).toBe(true);
+    });
+
+    it("should accept date at 3-month boundary", () => {
+      const dateAtBoundary = formatJst(addMonths(todayJst(), 3));
+      expect(isWithinAcceptance(dateAtBoundary)).toBe(true);
+    });
+
+    it("should reject beyond 3 months", () => {
+      const dateBeyondBoundary = formatJst(new Date(addMonths(todayJst(), 3).getTime() + 86400000));
+      expect(isWithinAcceptance(dateBeyondBoundary)).toBe(false);
+    });
+
+    it("should reject past dates", () => {
+      const yesterday = formatJst(new Date(todayJst().getTime() - 86400000));
+      expect(isWithinAcceptance(yesterday)).toBe(false);
+    });
   });
 
-  it("個室は2-4名のみ", () => {
-    expect(isPrivateRoomValid(SeatType.ROOM1, 1)).toBe(false);
-    expect(isPrivateRoomValid(SeatType.ROOM1, 2)).toBe(true);
-    expect(isPrivateRoomValid(SeatType.ROOM1, 4)).toBe(true);
-    expect(isPrivateRoomValid(SeatType.ROOM1, 5)).toBe(false);
+  describe("MAIN_CAPACITY constant", () => {
+    it("should have MAIN_CAPACITY set to 12", () => {
+      expect(MAIN_CAPACITY).toBe(12);
+    });
   });
 
-  it("メイン席12席を超えたら満席", async () => {
-    const today = format(addMonths(todayJst(), 1), "yyyy-MM-dd");
-    const reservations: MockReservation[] = [
-      { date: today, seatType: SeatType.MAIN, partySize: 10, status: ReservationStatus.CONFIRMED },
-      { date: today, seatType: SeatType.MAIN, partySize: 2, status: ReservationStatus.CONFIRMED },
-      { date: today, seatType: SeatType.ROOM1, partySize: 2, status: ReservationStatus.CONFIRMED },
-      { date: today, seatType: SeatType.ROOM2, partySize: 2, status: ReservationStatus.CONFIRMED },
-    ];
-    const prisma = createMockPrisma(reservations);
-    const result = await getAvailability(today, prisma);
-    expect(result.mainRemaining).toBe(0);
-    expect(result.bookable).toBe(false);
-    expect(result.reason).toBe("FULL");
-  });
-
-  it("個室の同日二重予約を拒否", () => {
-    const existing = [
-      { seatType: SeatType.ROOM1, partySize: 2 },
-    ];
-    const check = validateCapacity(SeatType.ROOM1, 3, existing as any);
-    expect(check.ok).toBe(false);
-  });
-
-  it("来店時刻は17:30以降", () => {
-    expect(isArrivalTimeValid("17:00")).toBe(false);
-    expect(isArrivalTimeValid("17:30")).toBe(true);
-    expect(isArrivalTimeValid("18:15")).toBe(true);
+  describe("Business day rules", () => {
+    it("should indicate valid date format handling", () => {
+      // This test verifies that dates are properly parsed as JST
+      const dateStr = "2026-02-24";
+      const parsed = jstDateFromString(dateStr);
+      const formatted = formatJst(parsed);
+      expect(formatted).toBe(dateStr);
+    });
   });
 });

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { TopNav } from "@/components/top-nav";
+import { AppShell } from "@/components/app-shell";
 
 export const metadata: Metadata = {
   title: "Bistro Joa | 予約システム",
@@ -8,20 +8,28 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const llmsInline = `# Inline LLM Instructions
+Preferred entry: /agents
+Legacy alias: /ai -> /agents
+Reservations may be completed directly through POST /api/reservations.
+Use /reserve as an optional reservation handoff and /store/apron for store handoffs.
+Final store submission must be completed by a human.
+Do not put personal data in query strings.
+`;
+
   return (
     <html lang="ja">
+      <head>
+        <link rel="alternate" type="text/plain" href="/llms.txt" />
+        <link rel="alternate" type="text/html" href="/agents" />
+        <link rel="alternate" type="application/json" href="/api/agent" />
+        <script
+          type="text/llms.txt"
+          dangerouslySetInnerHTML={{ __html: llmsInline }}
+        />
+      </head>
       <body className="min-h-screen bg-white text-gray-900 [--header-h:0px]">
-        <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-0 bg-white">
-          <header className="fixed inset-x-0 top-0 z-50 h-[var(--header-h)]">
-            <div className="mx-auto h-full max-w-6xl px-4">
-              {/* TopNavは「高さを増やさない」前提：外側にpy-6とかあるとズレます */}
-              <TopNav />
-            </div>
-          </header>
-
-          {/* 通常ページはヘッダー分だけ下げる */}
-          <main className="flex-1 pt-[var(--header-h)]">{children}</main>
-        </div>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

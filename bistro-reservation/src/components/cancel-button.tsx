@@ -15,7 +15,10 @@ export default function CancelButton({ id, disabled }: { id: string; disabled?: 
     setMessage(null);
     const res = await fetch(`/api/admin/reservations/${id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+      },
       body: JSON.stringify({ status: ReservationStatus.CANCELLED }),
     });
     if (res.ok) {

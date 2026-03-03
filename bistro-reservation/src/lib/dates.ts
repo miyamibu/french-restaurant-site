@@ -40,3 +40,16 @@ export function isBeyondRange(date: Date): boolean {
   const limit = addMonths(today, MAX_MONTH_AHEAD);
   return isAfter(date, limit);
 }
+
+/**
+ * Check if a date is a business day (Thursday-Sunday, closed Mon-Wed)
+ * 営業日判定：木〜日は営業、月〜水は定休日
+ */
+export function isBusinessDay(date: Date): boolean {
+  const dayOfWeek = date.getDay();
+  // 0: 日(Sun), 1: 月(Mon), 2: 火(Tue), 3: 水(Wed), 4: 木(Thu), 5: 金(Fri), 6: 土(Sat)
+  // Operate Thursday(4) to Sunday(0), closed Monday(1) to Wednesday(3)
+  return dayOfWeek === 0 || dayOfWeek === 4 || dayOfWeek === 5 || dayOfWeek === 6;
+}
+
+export { addMonths } from "date-fns";

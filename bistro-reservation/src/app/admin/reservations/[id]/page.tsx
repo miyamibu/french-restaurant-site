@@ -3,8 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { StatusForm } from "@/components/status-form";
 import { parseReservationNote } from "@/lib/reservation-note";
 
-export default async function AdminReservationDetail({ params }: { params: { id: string } }) {
-  const reservation = await prisma.reservation.findUnique({ where: { id: params.id } });
+export default async function AdminReservationDetail({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const reservation = await prisma.reservation.findUnique({ where: { id } });
 
   if (!reservation) {
     return <p className="text-gray-700">予約が見つかりませんでした。</p>;

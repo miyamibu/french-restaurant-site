@@ -1,24 +1,46 @@
-const COURSE_PREFIX = "コース:";
-
-export function parseReservationNote(rawNote: string | null | undefined) {
-  if (!rawNote) {
-    return { course: null as string | null, note: null as string | null };
+/**
+ * Parse reservation note to extract course and additional notes.
+ * Supported formats:
+ * - "コース: xxx"
+ * - "Course: xxx"
+ * - "備考: xxx"
+ * - "Note: xxx"
+ */
+export function parseReservationNote(
+  note: string | null | undefined
+): { course: string | null; note: string | null } {
+  if (!note) {
+    return { course: null, note: null };
   }
 
-  const lines = rawNote
+  const lines = note
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
 
-  const courseLineIndex = lines.findIndex((line) => line.startsWith(COURSE_PREFIX));
   let course: string | null = null;
+  const noteLines: string[] = [];
 
-  if (courseLineIndex >= 0) {
-    const courseText = lines[courseLineIndex].slice(COURSE_PREFIX.length).trim();
-    course = courseText || null;
-    lines.splice(courseLineIndex, 1);
+  for (const line of lines) {
+    const courseMatch = line.match(/^(?:コース|course)\s*[:：]\s*(.+)$/i);
+    if (courseMatch) {
+      course = courseMatch[1].trim();
+      continue;
+    }
+
+    const noteMatch = line.match(/^(?:備考|note)\s*[:：]\s*(.+)$/i);
+    if (noteMatch) {
+      noteLines.push(noteMatch[1].trim());
+      continue;
+    }
+
+    noteLines.push(line);
   }
 
-  const note = lines.join("\n").trim();
-  return { course, note: note || null };
+  const mergedNote = noteLines.join("\n").trim();
+  return {
+    course,
+    note: mergedNote || null,
+  };
 }
+

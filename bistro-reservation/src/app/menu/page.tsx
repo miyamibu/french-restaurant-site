@@ -21,30 +21,44 @@ const menuHeadingSize = { base: 32, md: 60 };
 const LAYOUT_SIZE = {
   desktopLeftPercent: 30,
   // +value widens left column, -value narrows left column.
-  leftWidthOffsetPercent: 40,
+  leftWidthOffsetPercent: 25,
   desktopRightPercent: 68,
   // +value widens right column, -value narrows right column.
-  rightWidthOffsetPercent: 0,
+  rightWidthOffsetPercent: -4,
   desktopGapPx: 0,
-  // -value moves the left column further to the left on desktop.
-  leftColumnOffsetPx: -210,
-  // -value moves right slideshow column to the left on desktop.
-  rightColumnOffsetPx: -200,
+  // Group move for left column.
+  leftColumnOffsetXPx: -80,
+  leftColumnOffsetYPx: 0,
+  // Group move for right slideshow.
+  rightColumnOffsetXPx: -40,
+  rightColumnOffsetYPx: 0,
+};
+
+const LEFT_COLUMN_VERTICAL_SIZE = {
+  // Vertical spacing between accordion blocks.
+  itemGapYPx: 16,
+  // Bottom breathing room for the whole left-column block.
+  blockPaddingBottomMobilePx: 8,
+  blockPaddingBottomDesktopPx: 48,
+  // Per-accordion vertical sizing.
+  accordionPaddingYPx: 10,
+  triggerMinHeightPx: 14,
 };
 
 const ACCORDION_SIZE = {
   // Applies to desktop as well (no md override), so edits are always visible.
   paddingX: 50,
-  paddingY: 10,
-  rowMinHeight: 14,
   labelSize: 50,
   labelOffsetX: -10,
   labelOffsetY: 0,
   labelLetterSpacingEm: 0.08,
-  symbolSize: 50,
-  symbolHitArea: 44,
-  symbolOffsetX: 0,
-  symbolOffsetY: -1,
+};
+
+const PLUS_BUTTON_SIZE = {
+  sizePx: 50,
+  hitAreaPx: 44,
+  offsetXPx: 0,
+  offsetYPx: -1,
 };
 
 const SLIDESHOW_SIZE = {
@@ -122,6 +136,7 @@ const sweetsMenu = {
 export default function MenuPage() {
   const [openSection, setOpenSection] = useState<MenuSection | null>(null);
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
+  const [activeHash, setActiveHash] = useState("");
   const leftColumnPercent = Math.min(
     70,
     Math.max(30, LAYOUT_SIZE.desktopLeftPercent + LAYOUT_SIZE.leftWidthOffsetPercent)
@@ -144,22 +159,27 @@ export default function MenuPage() {
   }, []);
 
   useEffect(() => {
-    const hash = window.location.hash ? decodeURIComponent(window.location.hash.slice(1)) : "";
+    const syncHash = () => {
+      const nextHash = window.location.hash ? decodeURIComponent(window.location.hash.slice(1)) : "";
+      setActiveHash(nextHash);
+    };
+
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+    return () => window.removeEventListener("hashchange", syncHash);
+  }, []);
+
+  useEffect(() => {
+    const hash = activeHash;
     if (!hash) return;
 
     const isCourseAnchor = courseAnchorIds.has(hash);
     const isSectionAnchor = sectionAnchorKeys.has(hash as MenuSection);
     if (!isCourseAnchor && !isSectionAnchor) return;
 
-    // Open target accordion first, then run scroll alignment in the next effect pass.
-    if (isCourseAnchor && openSection !== "course") {
-      setOpenSection("course");
-      return;
-    }
-    if (isSectionAnchor && openSection !== hash) {
-      setOpenSection(hash as MenuSection);
-      return;
-    }
+    // Open target accordion on hash change, then retry scrolling until target is measurable.
+    if (isCourseAnchor) setOpenSection("course");
+    if (isSectionAnchor) setOpenSection(hash as MenuSection);
 
     const getScrollOffset = () => {
       if (isCourseAnchor) return COURSE_ANCHOR_SCROLL_MARGIN_PX;
@@ -188,7 +208,7 @@ export default function MenuPage() {
     }, isSectionAnchor ? 80 : 60);
 
     return () => window.clearInterval(retryTimerId);
-  }, [openSection]);
+  }, [activeHash]);
 
   const toggleSection = (section: MenuSection) => {
     setOpenSection((prev) => (prev === section ? null : section));
@@ -201,25 +221,31 @@ export default function MenuPage() {
         "--menu-top-gap": `${TOP_GAP_PX}px`,
         "--menu-columns-desktop": `${leftColumnPercent}% ${rightColumnPercent}%`,
         "--menu-desktop-gap": `${LAYOUT_SIZE.desktopGapPx}px`,
-        "--menu-left-column-offset": `${LAYOUT_SIZE.leftColumnOffsetPx}px`,
-        "--menu-right-column-offset": `${LAYOUT_SIZE.rightColumnOffsetPx}px`,
+        "--menu-left-column-offset-x": `${LAYOUT_SIZE.leftColumnOffsetXPx}px`,
+        "--menu-left-column-offset-y": `${LAYOUT_SIZE.leftColumnOffsetYPx}px`,
+        "--menu-right-column-offset-x": `${LAYOUT_SIZE.rightColumnOffsetXPx}px`,
+        "--menu-right-column-offset-y": `${LAYOUT_SIZE.rightColumnOffsetYPx}px`,
+        "--menu-left-column-item-gap-y": `${LEFT_COLUMN_VERTICAL_SIZE.itemGapYPx}px`,
+        "--menu-left-column-pb-mobile": `${LEFT_COLUMN_VERTICAL_SIZE.blockPaddingBottomMobilePx}px`,
+        "--menu-left-column-pb-desktop": `${LEFT_COLUMN_VERTICAL_SIZE.blockPaddingBottomDesktopPx}px`,
         "--menu-accordion-px": `${ACCORDION_SIZE.paddingX}px`,
-        "--menu-accordion-py": `${ACCORDION_SIZE.paddingY}px`,
-        "--menu-accordion-row-min-h": `${ACCORDION_SIZE.rowMinHeight}px`,
+        "--menu-accordion-py": `${LEFT_COLUMN_VERTICAL_SIZE.accordionPaddingYPx}px`,
+        "--menu-accordion-row-min-h": `${LEFT_COLUMN_VERTICAL_SIZE.triggerMinHeightPx}px`,
         "--menu-accordion-label-size": `${ACCORDION_SIZE.labelSize}px`,
         "--menu-accordion-label-x": `${ACCORDION_SIZE.labelOffsetX}px`,
         "--menu-accordion-label-y": `${ACCORDION_SIZE.labelOffsetY}px`,
         "--menu-accordion-label-tracking": `${ACCORDION_SIZE.labelLetterSpacingEm}em`,
-        "--menu-accordion-symbol-size": `${ACCORDION_SIZE.symbolSize}px`,
-        "--menu-accordion-symbol-hit-area": `${ACCORDION_SIZE.symbolHitArea}px`,
-        "--menu-accordion-symbol-x": `${ACCORDION_SIZE.symbolOffsetX}px`,
-        "--menu-accordion-symbol-y": `${ACCORDION_SIZE.symbolOffsetY}px`,
+        "--menu-plus-size": `${PLUS_BUTTON_SIZE.sizePx}px`,
+        "--menu-plus-hit-area": `${PLUS_BUTTON_SIZE.hitAreaPx}px`,
+        "--menu-plus-offset-x": `${PLUS_BUTTON_SIZE.offsetXPx}px`,
+        "--menu-plus-offset-y": `${PLUS_BUTTON_SIZE.offsetYPx}px`,
         "--menu-slide-top": `${SLIDESHOW_SIZE.topPx}px`,
         "--menu-slide-bottom-gap": `${SLIDESHOW_SIZE.bottomGapPx}px`,
         "--menu-slide-height": `calc(100vh - var(--menu-slide-top) - var(--menu-slide-bottom-gap))`,
         "--menu-slide-radius": `${SLIDESHOW_SIZE.radiusPx}px`,
       } as Record<string, string>}
     >
+      <div className="pointer-events-none absolute inset-y-0 left-1/2 w-screen -translate-x-1/2 bg-gradient-to-b from-[#fff9e4] via-[#F3E5AB] to-[#dcc06f]" />
       <div className="relative z-10 px-4 pb-16 md:pb-[var(--menu-slide-bottom-gap)]" style={{ paddingTop: `${TOP_GAP_PX}px` }}>
         <header className="mb-8 space-y-2 text-center">
           <h1
@@ -237,8 +263,8 @@ export default function MenuPage() {
           className="grid grid-cols-1 items-start gap-y-6 md:[grid-template-columns:var(--menu-columns-desktop)]"
           style={{ columnGap: "var(--menu-desktop-gap)" }}
         >
-          <section className="md:pr-2 md:[transform:translateX(var(--menu-left-column-offset))]">
-            <div className="space-y-4 pb-2 md:pb-12">
+          <section className="md:pr-2 md:[transform:translate(var(--menu-left-column-offset-x),var(--menu-left-column-offset-y))]">
+            <div className="flex flex-col gap-[var(--menu-left-column-item-gap-y)] pb-[var(--menu-left-column-pb-mobile)] md:pb-[var(--menu-left-column-pb-desktop)]">
               {accordionSections.map((section) => {
                 const isOpen = openSection === section.key;
                 const panelId = `${section.key}-panel`;
@@ -267,7 +293,7 @@ export default function MenuPage() {
                         className="relative flex w-full min-h-[var(--menu-accordion-row-min-h)] items-center justify-end text-left"
                       >
                         <span
-                          className="pointer-events-none absolute left-1/2 top-1/2 inline-block font-semibold text-[#c6b317]"
+                          className="pointer-events-none absolute left-1/2 top-1/2 inline-block whitespace-nowrap font-semibold text-[#c6b317]"
                           style={{
                             fontSize: "var(--menu-accordion-label-size)",
                             letterSpacing: "var(--menu-accordion-label-tracking)",
@@ -283,10 +309,10 @@ export default function MenuPage() {
                           aria-hidden
                           className="inline-flex items-center justify-center leading-none text-[#2f1b0f]"
                           style={{
-                            width: "var(--menu-accordion-symbol-hit-area)",
-                            height: "var(--menu-accordion-symbol-hit-area)",
-                            fontSize: "var(--menu-accordion-symbol-size)",
-                            transform: "translate(var(--menu-accordion-symbol-x), var(--menu-accordion-symbol-y))",
+                            width: "var(--menu-plus-hit-area)",
+                            height: "var(--menu-plus-hit-area)",
+                            fontSize: "var(--menu-plus-size)",
+                            transform: "translate(var(--menu-plus-offset-x), var(--menu-plus-offset-y))",
                           }}
                         >
                           {isOpen ? "-" : "+"}
@@ -466,7 +492,7 @@ export default function MenuPage() {
             </div>
           </section>
 
-          <aside className="relative hidden overflow-hidden rounded-[var(--menu-slide-radius)] border border-[#cfa96d]/40 bg-[#f4efe6] shadow-sm md:sticky md:top-[var(--menu-slide-top)] md:block md:h-[var(--menu-slide-height)] md:[transform:translateX(var(--menu-right-column-offset))]">
+          <aside className="relative hidden overflow-hidden rounded-[var(--menu-slide-radius)] border border-[#cfa96d]/40 bg-[#f4efe6] shadow-sm md:sticky md:top-[var(--menu-slide-top)] md:block md:h-[var(--menu-slide-height)] md:[transform:translate(var(--menu-right-column-offset-x),var(--menu-right-column-offset-y))]">
             {slideshowPhotos.map((src, index) => {
               const isActive = index === activeSlideIndex;
 

@@ -1,0 +1,64 @@
+import { describe, expect, it } from "vitest";
+import { createOrderSchema, createReservationSchema } from "@/lib/validation";
+
+describe("Validation schemas", () => {
+  it("accepts valid reservation payload", () => {
+    const parsed = createReservationSchema.safeParse({
+      date: "2026-03-15",
+      partySize: 2,
+      arrivalTime: "18:30",
+      name: "山田 太郎",
+      phone: "090-1111-2222",
+      course: "ディナー",
+      note: "窓側希望",
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("rejects invalid reservation party size", () => {
+    const parsed = createReservationSchema.safeParse({
+      date: "2026-03-15",
+      partySize: 0,
+      name: "山田 太郎",
+      phone: "090-1111-2222",
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("rejects PAY_IN_STORE order without visit date", () => {
+    const parsed = createOrderSchema.safeParse({
+      items: [{ id: "item-1", quantity: 1 }],
+      customerInfo: {
+        name: "山田 太郎",
+        email: "test@example.com",
+        phone: "090-1111-2222",
+        zipCode: "100-0001",
+        prefecture: "東京都",
+        city: "千代田区",
+        address: "1-1-1",
+      },
+      paymentMethod: "PAY_IN_STORE",
+      total: 1000,
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("accepts BANK_TRANSFER order payload", () => {
+    const parsed = createOrderSchema.safeParse({
+      items: [{ id: "item-1", quantity: 2 }],
+      customerInfo: {
+        name: "山田 太郎",
+        email: "test@example.com",
+        phone: "090-1111-2222",
+        zipCode: "100-0001",
+        prefecture: "東京都",
+        city: "千代田区",
+        address: "1-1-1",
+      },
+      paymentMethod: "BANK_TRANSFER",
+      total: 2000,
+    });
+    expect(parsed.success).toBe(true);
+  });
+});
+

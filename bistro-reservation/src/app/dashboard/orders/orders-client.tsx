@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Noto_Serif_JP, Tangerine } from "next/font/google";
 
 const headingFont = Tangerine({
@@ -24,12 +24,27 @@ interface Order {
   city: string;
   address: string;
   building: string | null;
-  payment_method: "bank-transfer" | "cash-store";
-  items: any[];
+  payment_method: "BANK_TRANSFER" | "PAY_IN_STORE" | "bank-transfer" | "cash-store" | null;
+  items: OrderItem[];
   total: number;
   store_visit_date: string | null;
-  status: "unconfirmed" | "confirmed" | "shipped";
+  status:
+    | "QUOTED"
+    | "PENDING_PAYMENT"
+    | "PAID"
+    | "SHIPPED"
+    | "CANCELLED"
+    | "unconfirmed"
+    | "confirmed"
+    | "shipped";
+  version?: number;
   created_at: string;
+}
+
+interface OrderItem {
+  name: string;
+  quantity: number;
+  price: number;
 }
 
 interface BankAccount {
@@ -41,21 +56,39 @@ interface BankAccount {
   account_holder: string;
 }
 
-export function OrdersClient() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [bankAccount, setBankAccount] = useState<BankAccount | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+interface OrdersClientProps {
+  initialOrders: Order[];
+  initialBankAccount: BankAccount | null;
+}
+
+export function OrdersClient({ initialOrders, initialBankAccount }: OrdersClientProps) {
+  const [orders, setOrders] = useState<Order[]>(initialOrders);
+  const [bankAccount, setBankAccount] = useState<BankAccount | null>(initialBankAccount);
+  const [isLoading, setIsLoading] = useState(false);
   const [showBankForm, setShowBankForm] = useState(false);
   const [editingBank, setEditingBank] = useState<BankAccount | null>(null);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
-    loadOrders();
-    loadBankAccount();
+    setFeedback(null);
   }, []);
 
+  const ordersRequestIdRef = useRef(0);
+  const bankAccountRequestIdRef = useRef(0);
+
+  const createIdempotencyKey = () => {
+    if (typeof globalThis.crypto?.randomUUID === "function") {
+      return globalThis.crypto.randomUUID();
+    }
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  };
+
   const loadOrders = async () => {
+    const requestId = ordersRequestIdRef.current + 1;
+    ordersRequestIdRef.current = requestId;
+
     try {
-      const response = await fetch("/api/dashboard/orders", {
+      const response = await fetch("/dashboard/api/orders", {
         method: "GET",
       });
 
@@ -64,18 +97,30 @@ export function OrdersClient() {
       }
 
       const data = await response.json();
+      if (ordersRequestIdRef.current !== requestId) return;
       setOrders(data || []);
+      setFeedback((current) =>
+        current?.type === "error" && current.text === "注文一覧の読み込みに失敗しました"
+          ? null
+          : current
+      );
     } catch (error) {
+      if (ordersRequestIdRef.current !== requestId) return;
       console.error("Failed to load orders:", error);
-      alert("注文一覧の読み込みに失敗しました");
+      setFeedback({ type: "error", text: "注文一覧の読み込みに失敗しました" });
     } finally {
-      setIsLoading(false);
+      if (ordersRequestIdRef.current === requestId) {
+        setIsLoading(false);
+      }
     }
   };
 
   const loadBankAccount = async () => {
+    const requestId = bankAccountRequestIdRef.current + 1;
+    bankAccountRequestIdRef.current = requestId;
+
     try {
-      const response = await fetch("/api/dashboard/bank-account", {
+      const response = await fetch("/dashboard/api/bank-account", {
         method: "GET",
       });
 
@@ -84,48 +129,46 @@ export function OrdersClient() {
       }
 
       const data = await response.json();
+      if (bankAccountRequestIdRef.current !== requestId) return;
       setBankAccount(data?.id ? data : null);
     } catch (error) {
+      if (bankAccountRequestIdRef.current !== requestId) return;
       console.error("Failed to load bank account:", error);
     }
   };
 
-  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+  const performOrderAction = async (
+    order: Order,
+    action: "MARK_PAID" | "MARK_COLLECTED" | "MARK_SHIPPED",
+    payload: Record<string, unknown>
+  ) => {
     try {
-      const response = await fetch("/api/dashboard/orders", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId, status: newStatus }),
+      const response = await fetch(`/api/orders/${order.id}/actions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+          "Idempotency-Key": createIdempotencyKey(),
+        },
+        body: JSON.stringify({
+          action,
+          expectedVersion: order.version ?? 0,
+          payload,
+        }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to update order");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error ?? "Failed to update order");
       }
 
-      loadOrders();
+      await loadOrders();
     } catch (error) {
       console.error("Failed to update order status:", error);
-      alert("ステータスの更新に失敗しました");
-    }
-  };
-
-  const shipOrder = async (orderId: string) => {
-    try {
-      const response = await fetch("/api/dashboard/orders", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId }),
+      setFeedback({
+        type: "error",
+        text: error instanceof Error ? error.message : "ステータスの更新に失敗しました",
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to ship order");
-      }
-
-      loadOrders();
-      alert("注文を発送しました");
-    } catch (error) {
-      console.error("Failed to ship order:", error);
-      alert("発送処理に失敗しました");
     }
   };
 
@@ -137,14 +180,17 @@ export function OrdersClient() {
       !editingBank?.account_number ||
       !editingBank?.account_holder
     ) {
-      alert("全ての項目を入力してください");
+      setFeedback({ type: "error", text: "全ての項目を入力してください" });
       return;
     }
 
     try {
-      const response = await fetch("/api/dashboard/bank-account", {
+      const response = await fetch("/dashboard/api/bank-account", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+        },
         body: JSON.stringify(editingBank),
       });
 
@@ -154,34 +200,49 @@ export function OrdersClient() {
 
       setShowBankForm(false);
       setEditingBank(null);
-      loadBankAccount();
-      alert("銀行情報を保存しました");
+      await loadBankAccount();
+      setFeedback({ type: "success", text: "銀行情報を保存しました" });
     } catch (error) {
       console.error("Failed to save bank account:", error);
-      alert("銀行情報の保存に失敗しました");
+      setFeedback({ type: "error", text: "銀行情報の保存に失敗しました" });
     }
   };
 
   const getStatusBadge = (status: string) => {
     const statuses: Record<string, { label: string; color: string }> = {
-      unconfirmed: { label: "未確認", color: "bg-gray-200" },
-      confirmed: { label: "確認済み", color: "bg-yellow-200" },
-      shipped: { label: "発送", color: "bg-green-200" },
+      QUOTED: { label: "見積中", color: "bg-gray-200" },
+      PENDING_PAYMENT: { label: "支払い待ち", color: "bg-yellow-200" },
+      PAID: { label: "入金済み", color: "bg-blue-200" },
+      SHIPPED: { label: "発送済み", color: "bg-green-200" },
+      CANCELLED: { label: "キャンセル", color: "bg-red-200" },
+      unconfirmed: { label: "旧:未確認", color: "bg-gray-200" },
+      confirmed: { label: "旧:確認済み", color: "bg-yellow-200" },
+      shipped: { label: "旧:発送", color: "bg-green-200" },
     };
     const s = statuses[status] || statuses.unconfirmed;
     return <span className={`px-3 py-1 rounded-full text-sm font-semibold ${s.color}`}>{s.label}</span>;
   };
 
+  const getPaymentMethodLabel = (paymentMethod: Order["payment_method"]) => {
+    if (paymentMethod === "BANK_TRANSFER" || paymentMethod === "bank-transfer") {
+      return "銀行振込";
+    }
+    if (paymentMethod === "PAY_IN_STORE" || paymentMethod === "cash-store") {
+      return "来店時支払い";
+    }
+    return "未選択";
+  };
+
   if (isLoading) {
     return (
-      <section className="p-8 bg-gray-50 min-h-screen">
+      <section className="min-h-screen px-8 pb-8 pt-12">
         <div className="text-center">読み込み中...</div>
       </section>
     );
   }
 
   return (
-    <section className="p-8 bg-gray-50 min-h-screen">
+    <section className="min-h-screen px-8 pb-8 pt-12">
       <div className="max-w-7xl mx-auto">
         <header className="mb-12">
           <h1
@@ -189,6 +250,11 @@ export function OrdersClient() {
           >
             注文管理ダッシュボード
           </h1>
+          {feedback && (
+            <p className={`text-sm ${feedback.type === "error" ? "text-red-700" : "text-green-700"}`}>
+              {feedback.text}
+            </p>
+          )}
         </header>
 
         {/* 銀行情報セクション */}
@@ -386,10 +452,8 @@ export function OrdersClient() {
                         <div className="text-xs text-gray-600">{order.phone}</div>
                       </td>
                       <td className="px-4 py-3 text-sm">
-                        {order.payment_method === "bank-transfer"
-                          ? "銀行振込"
-                          : "来店時支払い"}
-                        {order.payment_method === "cash-store" && order.store_visit_date && (
+                        {getPaymentMethodLabel(order.payment_method)}
+                        {(order.payment_method === "PAY_IN_STORE" || order.payment_method === "cash-store") && order.store_visit_date && (
                           <div className="text-xs text-gray-600 mt-1">
                             来店日: {order.store_visit_date}
                           </div>
@@ -401,32 +465,66 @@ export function OrdersClient() {
                       <td className="px-4 py-3">{getStatusBadge(order.status)}</td>
                       <td className="px-4 py-3 text-sm space-y-2">
                         <div>
-                          {order.status === "unconfirmed" && (
+                          {order.status === "PENDING_PAYMENT" &&
+                            (order.payment_method === "BANK_TRANSFER" ||
+                              order.payment_method === "bank-transfer") && (
                             <button
-                              onClick={() =>
-                                updateOrderStatus(order.id, "confirmed")
-                              }
+                              onClick={async () => {
+                                const paymentReference = window.prompt("8桁の参照コードを入力してください");
+                                if (!paymentReference) return;
+                                const receivedAmountText = window.prompt(
+                                  "入金額を入力してください",
+                                  String(order.total)
+                                );
+                                if (!receivedAmountText) return;
+                                const receivedAmount = Number(receivedAmountText);
+                                if (!Number.isFinite(receivedAmount)) {
+                                  setFeedback({ type: "error", text: "入金額が不正です" });
+                                  return;
+                                }
+                                await performOrderAction(order, "MARK_PAID", {
+                                  paymentReference,
+                                  receivedAmount,
+                                });
+                              }}
                               className="px-3 py-1 bg-yellow-500 text-white rounded text-xs hover:brightness-110 transition"
                             >
-                              確認済みに
+                              入金確認
                             </button>
                           )}
-                          {order.status === "confirmed" && (
+                          {order.status === "PENDING_PAYMENT" &&
+                            (order.payment_method === "PAY_IN_STORE" ||
+                              order.payment_method === "cash-store") && (
                             <button
-                              onClick={() =>
-                                updateOrderStatus(order.id, "shipped")
-                              }
+                              onClick={async () => {
+                                const receivedAmountText = window.prompt(
+                                  "受領額を入力してください",
+                                  String(order.total)
+                                );
+                                if (!receivedAmountText) return;
+                                const receivedAmount = Number(receivedAmountText);
+                                if (!Number.isFinite(receivedAmount)) {
+                                  setFeedback({ type: "error", text: "受領額が不正です" });
+                                  return;
+                                }
+                                await performOrderAction(order, "MARK_COLLECTED", {
+                                  receivedAmount,
+                                });
+                              }}
                               className="px-3 py-1 bg-blue-500 text-white rounded text-xs hover:brightness-110 transition"
                             >
-                              発送待機中
+                              受領済み
                             </button>
                           )}
-                          {order.status === "shipped" && (
+                          {order.status === "PAID" && (
                             <button
-                              onClick={() => shipOrder(order.id)}
+                              onClick={async () => {
+                                await performOrderAction(order, "MARK_SHIPPED", {});
+                                setFeedback({ type: "success", text: "発送済みに更新しました" });
+                              }}
                               className="px-3 py-1 bg-green-600 text-white rounded text-xs hover:brightness-110 transition"
                             >
-                              発送完了・削除
+                              発送完了
                             </button>
                           )}
                         </div>
@@ -440,7 +538,7 @@ export function OrdersClient() {
 - 住所: ${order.zip_code} ${order.prefecture}${order.city}${order.address}${order.building || ""}
 
 商品:
-${order.items.map((item: any) => `- ${item.name} × ${item.quantity}: ¥${(item.price * item.quantity).toLocaleString("ja-JP")}`).join("\n")}
+${order.items.map((item) => `- ${item.name} × ${item.quantity}: ¥${(item.price * item.quantity).toLocaleString("ja-JP")}`).join("\n")}
 
 合計: ¥${order.total.toLocaleString("ja-JP")}
 `;

@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { Route } from "next";
 import { Noto_Serif_JP, Tangerine } from "next/font/google";
+import { storeProducts } from "@/lib/store-products";
 
 const headingFont = Tangerine({
   subsets: ["latin"],
@@ -16,38 +18,10 @@ const bodySerif = Noto_Serif_JP({
 const storeSpacing = { top: 132, bottom: 140 };
 const menuHeadingSize = { base: 32, md: 60 };
 
-const products = [
-  {
-    id: "variety",
-    name: "オリジナルエプロン",
-    count: "",
-    price: "¥10,000",
-    image: "/photos/online%20store/エプロン.jpg",
-    fit: "contain",
-    href: "/store/apron",
-  },
-  {
-    id: "shokupan",
-    name: "食パンセット",
-    count: "3個",
-    price: "¥2,376",
-    image:
-      "https://images.unsplash.com/photo-1549931319-a545dcf3bc73?auto=format&fit=crop&w=1200&q=80",
-  },
-  {
-    id: "popular",
-    name: "人気パンセット",
-    count: "10個",
-    price: "¥3,024",
-    image:
-      "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=1200&q=80",
-  },
-];
-
 export default function StorePage() {
   return (
     <section
-      className="relative w-screen bg-gradient-to-b from-[#f7ebd3] via-[#f1ddb5] to-[#e8c98f] px-4"
+      className="relative w-screen bg-gradient-to-b from-[#fff9e4] via-[#F3E5AB] to-[#dcc06f] px-4"
       style={{
         marginLeft: "calc(50% - 50vw)",
         marginRight: "calc(50% - 50vw)",
@@ -71,7 +45,8 @@ export default function StorePage() {
         </header>
 
         <div className="mt-6 grid gap-y-12 md:mx-auto md:max-w-[56rem] md:grid-cols-2 md:gap-x-6">
-          {products.map((product, index) => {
+          {storeProducts.map((product, index) => {
+            const isComingSoon = !product.href;
             const card = (
               <article
                 className="text-center store-fade-up"
@@ -80,6 +55,13 @@ export default function StorePage() {
                 }}
               >
                 <div className="relative mx-auto aspect-[16/11] w-full max-w-[24rem] overflow-hidden rounded-sm bg-white">
+                  {isComingSoon && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/35">
+                      <span className="text-2xl font-semibold tracking-[0.14em] text-white">
+                        準備中
+                      </span>
+                    </div>
+                  )}
                   <Image
                     src={product.image}
                     alt={product.name}
@@ -90,14 +72,22 @@ export default function StorePage() {
                 </div>
                 <div className={`${bodySerif.className} mt-4 space-y-2`}>
                   <p className="text-base font-semibold text-[#2f1b0f]">
-                    {product.name}
-                    <span className="ml-2 text-sm font-medium text-[#6b4a2f]">
-                      {product.count}
-                    </span>
+                    {isComingSoon ? (
+                      "準備中"
+                    ) : (
+                      <>
+                        {product.name}
+                        <span className="ml-2 text-sm font-medium text-[#6b4a2f]">
+                          {product.count}
+                        </span>
+                      </>
+                    )}
                   </p>
-                  <p className="text-sm tracking-[0.14em] text-[#4a3121]">
-                    {product.price}
-                  </p>
+                  {!isComingSoon && (
+                    <p className="text-sm tracking-[0.14em] text-[#4a3121]">
+                      {product.price}
+                    </p>
+                  )}
                 </div>
               </article>
             );
@@ -106,7 +96,7 @@ export default function StorePage() {
               return (
                 <Link
                   key={product.id}
-                  href={product.href}
+                  href={product.href as Route}
                   className="block rounded-sm transition hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6b4a2f]/30"
                   aria-label={`${product.name}の購入ページへ`}
                 >

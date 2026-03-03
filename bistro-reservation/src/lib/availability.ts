@@ -1,6 +1,7 @@
 import { ReservationStatus } from "@prisma/client";
 import { jstDateFromString, isSameOrBeforeToday, isBeyondRange } from "@/lib/dates";
 import type { PrismaClient } from "@prisma/client";
+import { getContactPayload } from "@/lib/contact";
 
 export type AvailabilityReason =
   | "OK"
@@ -28,8 +29,7 @@ export async function getAvailability(
   dateStr: string,
   prisma: PrismaClient
 ): Promise<AvailabilityResult> {
-  const callPhone = "09098297614";
-  const callMessage = `お電話でお問い合わせください：${callPhone}`;
+  const { callPhone, callMessage } = getContactPayload();
 
   let parsed: Date;
   try {

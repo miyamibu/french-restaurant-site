@@ -15,7 +15,10 @@ export function StatusForm({ id, current }: { id: string; current: ReservationSt
     setStatus(nextStatus);
     const res = await fetch(`/api/admin/reservations/${id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+      },
       body: JSON.stringify({ status: nextStatus }),
     });
     if (res.ok) {

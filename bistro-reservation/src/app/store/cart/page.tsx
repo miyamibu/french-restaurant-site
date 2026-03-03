@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Noto_Serif_JP, Tangerine } from "next/font/google";
 import { formatYen, getCartItems, type StoreCartItem, clearCart, removeFromCart } from "@/lib/store-cart";
 
@@ -21,7 +21,7 @@ const bodySerif = Noto_Serif_JP({
 const pageSpacing = { top: 132, bottom: 140 };
 const menuHeadingSize = { base: 32, md: 60 };
 
-type PaymentMethod = "bank-transfer" | "cash-store" | null;
+type PaymentMethod = "BANK_TRANSFER" | "PAY_IN_STORE" | null;
 
 interface CustomerInfo {
   name: string;
@@ -34,21 +34,13 @@ interface CustomerInfo {
   building: string;
 }
 
-// 営業日判定（月火水が定休日）
-function isBusinessDay(date: Date): boolean {
-  const dayOfWeek = date.getDay();
-  // 0: 日, 1: 月, 2: 火, 3: 水, 4: 木, 5: 金, 6: 土
-  return dayOfWeek !== 1 && dayOfWeek !== 2 && dayOfWeek !== 3;
-}
-
-// 来店可能な日付の範囲を計算（注文日から２週間〜３０日）
 function getStoreDateRange(): { minDate: string; maxDate: string } {
   const today = new Date();
   const minDate = new Date(today);
-  minDate.setDate(minDate.getDate() + 14); // 2週間後
+  minDate.setDate(minDate.getDate() + 14);
 
   const maxDate = new Date(today);
-  maxDate.setDate(maxDate.getDate() + 30); // 30日後
+  maxDate.setDate(maxDate.getDate() + 30);
 
   return {
     minDate: minDate.toISOString().split("T")[0],
@@ -66,13 +58,35 @@ const prefectures = [
   "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県",
 ];
 
-export default function StoreCartPage() {
+function StoreCartFallback() {
+  return (
+    <section
+      className="relative w-screen bg-gradient-to-b from-[#f7ebd3] via-[#f1ddb5] to-[#e8c98f] px-4"
+      style={{
+        marginLeft: "calc(50% - 50vw)",
+        marginRight: "calc(50% - 50vw)",
+        paddingTop: `${pageSpacing.top}px`,
+        paddingBottom: `${pageSpacing.bottom}px`,
+      }}
+    >
+      <div className="mx-auto max-w-4xl">
+        <p className={`${bodySerif.className} text-sm text-[#4a3121]`}>読み込み中...</p>
+      </div>
+    </section>
+  );
+}
+
+function StoreCartContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isAgentMode = searchParams.get("mode") === "agent";
   const [items, setItems] = useState<StoreCartItem[]>([]);
   const [isCheckout, setIsCheckout] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(null);
   const [storeVisitDate, setStoreVisitDate] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState(false);
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     name: "",
     email: "",
@@ -83,6 +97,7 @@ export default function StoreCartPage() {
     address: "",
     building: "",
   });
+  const orderIdempotencyKeyRef = useRef<string | null>(null);
 
   const { minDate, maxDate } = useMemo(() => getStoreDateRange(), []);
 
@@ -97,63 +112,73 @@ export default function StoreCartPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    orderIdempotencyKeyRef.current = null;
     setCustomerInfo((prev) => ({ ...prev, [name]: value }));
   };
 
-  const validateForm = (): boolean => {
+  const validateForm = (): string | null => {
     if (!customerInfo.name.trim()) {
-      alert("お名前を入力してください");
-      return false;
+      return "お名前を入力してください";
     }
     if (!customerInfo.email.trim()) {
-      alert("メールアドレスを入力してください");
-      return false;
+      return "メールアドレスを入力してください";
     }
     if (!customerInfo.phone.trim()) {
-      alert("電話番号を入力してください");
-      return false;
+      return "電話番号を入力してください";
     }
     if (!customerInfo.zipCode.trim()) {
-      alert("郵便番号を入力してください");
-      return false;
+      return "郵便番号を入力してください";
     }
     if (!customerInfo.prefecture) {
-      alert("都道府県を選択してください");
-      return false;
+      return "都道府県を選択してください";
     }
     if (!customerInfo.city.trim()) {
-      alert("市区町村を入力してください");
-      return false;
+      return "市区町村を入力してください";
     }
     if (!customerInfo.address.trim()) {
-      alert("番地を入力してください");
-      return false;
+      return "番地を入力してください";
     }
     if (!paymentMethod) {
-      alert("支払い方法を選択してください");
-      return false;
+      return "支払い方法を選択してください";
     }
-    if (paymentMethod === "cash-store" && !storeVisitDate) {
-      alert("来店予定日を選択してください");
-      return false;
+    if (paymentMethod === "PAY_IN_STORE" && !storeVisitDate) {
+      return "来店予定日を選択してください";
     }
-    return true;
+    return null;
   };
 
   const handleSubmitOrder = async () => {
-    if (!validateForm()) return;
+    const validationMessage = validateForm();
+    if (validationMessage) {
+      setSubmitError(true);
+      setSubmitMessage(validationMessage);
+      return;
+    }
 
     setIsLoading(true);
+    setSubmitError(false);
+    setSubmitMessage(null);
     try {
+      if (!orderIdempotencyKeyRef.current) {
+        orderIdempotencyKeyRef.current =
+          typeof globalThis.crypto?.randomUUID === "function"
+            ? globalThis.crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      }
+
       const response = await fetch("/api/orders", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+          "Idempotency-Key": orderIdempotencyKeyRef.current,
+        },
         body: JSON.stringify({
           items,
           customerInfo,
           paymentMethod,
           total,
-          storeVisitDate: paymentMethod === "cash-store" ? storeVisitDate : undefined,
+          storeVisitDate: paymentMethod === "PAY_IN_STORE" ? storeVisitDate : undefined,
         }),
       });
 
@@ -162,11 +187,13 @@ export default function StoreCartPage() {
         router.push(`/store/order-complete?method=${paymentMethod}`);
       } else {
         const errorData = await response.json();
-        alert(`注文処理中にエラーが発生しました: ${errorData.error}`);
+        setSubmitError(true);
+        setSubmitMessage(`注文処理中にエラーが発生しました: ${errorData.error ?? "不明なエラー"}`);
       }
     } catch (error) {
       console.error("エラー:", error);
-      alert("注文処理中にエラーが発生しました");
+      setSubmitError(true);
+      setSubmitMessage("注文処理中にエラーが発生しました");
     } finally {
       setIsLoading(false);
     }
@@ -179,12 +206,13 @@ export default function StoreCartPage() {
         style={{
           marginLeft: "calc(50% - 50vw)",
           marginRight: "calc(50% - 50vw)",
+          minHeight: "100dvh",
           paddingTop: `${pageSpacing.top}px`,
           paddingBottom: `${pageSpacing.bottom}px`,
         }}
       >
         <div className="mx-auto max-w-[76rem]">
-          <header className="text-center mb-12">
+          <header className="mb-12 text-center">
             <h1
               className={`font-semibold text-[#2f1b0f] ${headingFont.className}`}
               style={{ fontSize: `min(${menuHeadingSize.base}px, max(2rem, 4vw))` }}
@@ -193,7 +221,19 @@ export default function StoreCartPage() {
             </h1>
           </header>
 
-          <div className={`${bodySerif.className} mx-auto w-full max-w-[40rem] text-center space-y-4`}>
+          {isAgentMode ? (
+            <div className={`${bodySerif.className} mx-auto mb-8 w-full max-w-[40rem] rounded-2xl border border-[#cfa96d]/40 bg-white/90 px-6 py-5 text-left text-[#4a3121] shadow-[0_16px_48px_rgba(47,27,15,0.08)]`}>
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#8a6233]">
+                Warm Handoff
+              </p>
+              <p className="mt-3 text-sm leading-7">
+                AIが購入直前まで案内しました。現在カートは空です。商品ページで数量を確認し、
+                ご本人がカート追加と最終注文を行ってください。
+              </p>
+            </div>
+          ) : null}
+
+          <div className={`${bodySerif.className} mx-auto w-full max-w-[40rem] space-y-4 text-center`}>
             <p className="text-xl font-semibold text-[#2f1b0f]">カートは空です</p>
             <p className="text-sm text-[#4a3121]">商品ページで「カートに入れる」を押すとここに表示されます。</p>
             <Link
@@ -214,14 +254,27 @@ export default function StoreCartPage() {
       style={{
         marginLeft: "calc(50% - 50vw)",
         marginRight: "calc(50% - 50vw)",
+        minHeight: "100dvh",
         paddingTop: `${pageSpacing.top}px`,
         paddingBottom: `${pageSpacing.bottom}px`,
       }}
     >
       <div className="mx-auto max-w-4xl">
+        {isAgentMode ? (
+          <div className={`${bodySerif.className} mb-8 rounded-2xl border border-[#cfa96d]/40 bg-white/90 px-6 py-5 text-left text-[#4a3121] shadow-[0_16px_48px_rgba(47,27,15,0.08)]`}>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#8a6233]">
+              Warm Handoff
+            </p>
+            <p className="mt-3 text-sm leading-7">
+              AIが商品選定まで案内しました。内容を確認し、この画面でお客様ご自身が連絡先入力、
+              支払い方法の選択、最終注文を行ってください。
+            </p>
+          </div>
+        ) : null}
+
         {!isCheckout ? (
           <>
-            <header className="text-center mb-12">
+            <header className="mb-12 text-center">
               <h1
                 className={`font-semibold text-[#2f1b0f] ${headingFont.className}`}
                 style={{ fontSize: `min(${menuHeadingSize.base}px, max(2rem, 4vw))` }}
@@ -230,21 +283,21 @@ export default function StoreCartPage() {
               </h1>
             </header>
 
-            <div className={`${bodySerif.className} space-y-6 mb-12`}>
+            <div className={`${bodySerif.className} mb-12 space-y-6`}>
               {items.map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-center gap-4 p-6 bg-white rounded-lg border border-[#2f1b0f]"
+                  className="flex items-center gap-4 rounded-lg border border-[#2f1b0f] bg-white p-6"
                 >
-                  <div className="relative h-20 w-20 overflow-hidden rounded bg-white flex-shrink-0">
+                  <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded bg-white">
                     <Image src={item.image} alt={item.name} fill className="object-contain p-1" sizes="80px" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold text-lg text-[#2f1b0f]">{item.name}</h3>
-                    <p className="text-[#4a3121] mt-2">
+                    <h3 className="text-lg font-semibold text-[#2f1b0f]">{item.name}</h3>
+                    <p className="mt-2 text-[#4a3121]">
                       {formatYen(item.price)} × {item.quantity}
                     </p>
-                    <p className="font-semibold text-[#2f1b0f] mt-2">
+                    <p className="mt-2 font-semibold text-[#2f1b0f]">
                       小計: {formatYen(item.price * item.quantity)}
                     </p>
                   </div>
@@ -253,7 +306,7 @@ export default function StoreCartPage() {
                       removeFromCart(item.id);
                       setItems(getCartItems());
                     }}
-                    className="px-4 py-2 bg-red-200 text-red-800 rounded hover:bg-red-300 transition"
+                    className="rounded bg-red-200 px-4 py-2 text-red-800 transition hover:bg-red-300"
                   >
                     削除
                   </button>
@@ -261,22 +314,22 @@ export default function StoreCartPage() {
               ))}
             </div>
 
-            <div className={`${bodySerif.className} text-right mb-12`}>
+            <div className={`${bodySerif.className} mb-12 text-right`}>
               <p className="text-2xl font-semibold text-[#2f1b0f]">
                 合計: {formatYen(total)}
               </p>
             </div>
 
-            <div className="flex gap-4 mb-12">
+            <div className="mb-12 flex gap-4">
               <Link
                 href="/store"
-                className="flex-1 py-4 bg-white border-2 border-[#2f1b0f] text-[#2f1b0f] font-semibold rounded-full hover:brightness-95 transition text-center"
+                className="flex-1 rounded-full border-2 border-[#2f1b0f] bg-white py-4 text-center font-semibold text-[#2f1b0f] transition hover:brightness-95"
               >
                 買い物を続ける
               </Link>
               <button
                 onClick={() => setIsCheckout(true)}
-                className="flex-1 py-4 bg-[#2f1b0f] text-white font-semibold rounded-full hover:brightness-110 transition"
+                className="flex-1 rounded-full bg-[#2f1b0f] py-4 font-semibold text-white transition hover:brightness-110"
               >
                 チェックアウト
               </button>
@@ -284,7 +337,7 @@ export default function StoreCartPage() {
           </>
         ) : (
           <>
-            <header className="text-center mb-12">
+            <header className="mb-12 text-center">
               <h1
                 className={`font-semibold text-[#2f1b0f] ${headingFont.className}`}
                 style={{ fontSize: `min(${menuHeadingSize.base}px, max(2rem, 4vw))` }}
@@ -293,12 +346,12 @@ export default function StoreCartPage() {
               </h1>
             </header>
 
-            <div className={`${bodySerif.className} bg-white p-8 rounded-lg border border-[#2f1b0f]`}>
-              <h2 className="text-2xl font-semibold text-[#2f1b0f] mb-6">顧客情報</h2>
+            <div className={`${bodySerif.className} rounded-lg border border-[#2f1b0f] bg-white p-8`}>
+              <h2 className="mb-6 text-2xl font-semibold text-[#2f1b0f]">顧客情報</h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-semibold text-[#2f1b0f] mb-2">
+                  <label className="mb-2 block text-sm font-semibold text-[#2f1b0f]">
                     お名前 <span className="text-red-600">*</span>
                   </label>
                   <input
@@ -307,12 +360,12 @@ export default function StoreCartPage() {
                     value={customerInfo.name}
                     onChange={handleInputChange}
                     placeholder="山田太郎"
-                    className="w-full px-4 py-2 border border-[#2f1b0f] rounded text-[#2f1b0f]"
+                    className="w-full rounded border border-[#2f1b0f] px-4 py-2 text-[#2f1b0f]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-[#2f1b0f] mb-2">
+                  <label className="mb-2 block text-sm font-semibold text-[#2f1b0f]">
                     メールアドレス <span className="text-red-600">*</span>
                   </label>
                   <input
@@ -321,12 +374,12 @@ export default function StoreCartPage() {
                     value={customerInfo.email}
                     onChange={handleInputChange}
                     placeholder="example@email.com"
-                    className="w-full px-4 py-2 border border-[#2f1b0f] rounded text-[#2f1b0f]"
+                    className="w-full rounded border border-[#2f1b0f] px-4 py-2 text-[#2f1b0f]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-[#2f1b0f] mb-2">
+                  <label className="mb-2 block text-sm font-semibold text-[#2f1b0f]">
                     電話番号 <span className="text-red-600">*</span>
                   </label>
                   <input
@@ -335,12 +388,12 @@ export default function StoreCartPage() {
                     value={customerInfo.phone}
                     onChange={handleInputChange}
                     placeholder="090-1234-5678"
-                    className="w-full px-4 py-2 border border-[#2f1b0f] rounded text-[#2f1b0f]"
+                    className="w-full rounded border border-[#2f1b0f] px-4 py-2 text-[#2f1b0f]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-[#2f1b0f] mb-2">
+                  <label className="mb-2 block text-sm font-semibold text-[#2f1b0f]">
                     郵便番号 <span className="text-red-600">*</span>
                   </label>
                   <input
@@ -349,19 +402,19 @@ export default function StoreCartPage() {
                     value={customerInfo.zipCode}
                     onChange={handleInputChange}
                     placeholder="123-4567"
-                    className="w-full px-4 py-2 border border-[#2f1b0f] rounded text-[#2f1b0f]"
+                    className="w-full rounded border border-[#2f1b0f] px-4 py-2 text-[#2f1b0f]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-[#2f1b0f] mb-2">
+                  <label className="mb-2 block text-sm font-semibold text-[#2f1b0f]">
                     都道府県 <span className="text-red-600">*</span>
                   </label>
                   <select
                     name="prefecture"
                     value={customerInfo.prefecture}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-[#2f1b0f] rounded text-[#2f1b0f]"
+                    className="w-full rounded border border-[#2f1b0f] px-4 py-2 text-[#2f1b0f]"
                   >
                     <option value="">選択してください</option>
                     {prefectures.map((pref) => (
@@ -373,7 +426,7 @@ export default function StoreCartPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-[#2f1b0f] mb-2">
+                  <label className="mb-2 block text-sm font-semibold text-[#2f1b0f]">
                     市区町村 <span className="text-red-600">*</span>
                   </label>
                   <input
@@ -382,12 +435,12 @@ export default function StoreCartPage() {
                     value={customerInfo.city}
                     onChange={handleInputChange}
                     placeholder="東京都渋谷区"
-                    className="w-full px-4 py-2 border border-[#2f1b0f] rounded text-[#2f1b0f]"
+                    className="w-full rounded border border-[#2f1b0f] px-4 py-2 text-[#2f1b0f]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-[#2f1b0f] mb-2">
+                  <label className="mb-2 block text-sm font-semibold text-[#2f1b0f]">
                     番地 <span className="text-red-600">*</span>
                   </label>
                   <input
@@ -396,12 +449,12 @@ export default function StoreCartPage() {
                     value={customerInfo.address}
                     onChange={handleInputChange}
                     placeholder="1-2-3"
-                    className="w-full px-4 py-2 border border-[#2f1b0f] rounded text-[#2f1b0f]"
+                    className="w-full rounded border border-[#2f1b0f] px-4 py-2 text-[#2f1b0f]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-[#2f1b0f] mb-2">
+                  <label className="mb-2 block text-sm font-semibold text-[#2f1b0f]">
                     建物名・部屋番号
                   </label>
                   <input
@@ -410,77 +463,92 @@ export default function StoreCartPage() {
                     value={customerInfo.building}
                     onChange={handleInputChange}
                     placeholder="101号室"
-                    className="w-full px-4 py-2 border border-[#2f1b0f] rounded text-[#2f1b0f]"
+                    className="w-full rounded border border-[#2f1b0f] px-4 py-2 text-[#2f1b0f]"
                   />
                 </div>
               </div>
 
-              <h2 className="text-2xl font-semibold text-[#2f1b0f] mb-6 mt-8">支払い方法</h2>
+              <h2 className="mb-6 mt-8 text-2xl font-semibold text-[#2f1b0f]">支払い方法</h2>
 
-              <div className="space-y-4 mb-8">
-                <label className="flex items-start p-6 border-2 border-[#2f1b0f] rounded-lg cursor-pointer hover:bg-gray-50 transition">
+              <div className="mb-8 space-y-4">
+                <label className="flex cursor-pointer items-start rounded-lg border-2 border-[#2f1b0f] p-6 transition hover:bg-gray-50">
                   <input
                     type="radio"
                     name="payment"
-                    value="bank-transfer"
-                    checked={paymentMethod === "bank-transfer"}
-                    onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                    className="w-5 h-5 mt-1 flex-shrink-0"
+                    value="BANK_TRANSFER"
+                    checked={paymentMethod === "BANK_TRANSFER"}
+                    onChange={(e) => {
+                      orderIdempotencyKeyRef.current = null;
+                      setPaymentMethod(e.target.value as PaymentMethod);
+                    }}
+                    className="mt-1 h-5 w-5 flex-shrink-0"
                   />
                   <div className="ml-4 flex-1">
-                    <p className="font-semibold text-lg text-[#2f1b0f]">銀行振込</p>
-                    <p className="text-sm text-[#4a3121] mt-2">
+                    <p className="text-lg font-semibold text-[#2f1b0f]">銀行振込</p>
+                    <p className="mt-2 text-sm text-[#4a3121]">
                       注文後にメールで振込先口座情報をお知らせします。ご入金確認後に商品を発送いたします。
                     </p>
                   </div>
                 </label>
 
-                <label className="flex items-start p-6 border-2 border-[#2f1b0f] rounded-lg cursor-pointer hover:bg-gray-50 transition">
+                <label className="flex cursor-pointer items-start rounded-lg border-2 border-[#2f1b0f] p-6 transition hover:bg-gray-50">
                   <input
                     type="radio"
                     name="payment"
-                    value="cash-store"
-                    checked={paymentMethod === "cash-store"}
-                    onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                    className="w-5 h-5 mt-1 flex-shrink-0"
+                    value="PAY_IN_STORE"
+                    checked={paymentMethod === "PAY_IN_STORE"}
+                    onChange={(e) => {
+                      orderIdempotencyKeyRef.current = null;
+                      setPaymentMethod(e.target.value as PaymentMethod);
+                    }}
+                    className="mt-1 h-5 w-5 flex-shrink-0"
                   />
                   <div className="ml-4 flex-1">
-                    <p className="font-semibold text-lg text-[#2f1b0f]">来店時にお支払い（現金）</p>
-                    <p className="text-sm text-[#4a3121] mt-2">
+                    <p className="text-lg font-semibold text-[#2f1b0f]">来店時にお支払い（現金）</p>
+                    <p className="mt-2 text-sm text-[#4a3121]">
                       ご来店時に現金でお支払いください。商品はご来店予定日に合わせて用意いたします。
                     </p>
                   </div>
                 </label>
               </div>
 
-              {paymentMethod === "cash-store" && (
-                <div className="mb-8 p-6 bg-[#f7ebd3] rounded-lg border border-[#2f1b0f]">
-                  <h3 className="text-lg font-semibold text-[#2f1b0f] mb-4">来店予定日を選択</h3>
-                  <p className="text-sm text-[#4a3121] mb-4">
+              {paymentMethod === "PAY_IN_STORE" && (
+                <div className="mb-8 rounded-lg border border-[#2f1b0f] bg-[#f7ebd3] p-6">
+                  <h3 className="mb-4 text-lg font-semibold text-[#2f1b0f]">来店予定日を選択</h3>
+                  <p className="mb-4 text-sm text-[#4a3121]">
                     ※ 注文日から2週間〜30日の営業日（木〜日）のみ選択可能です。定休日は月〜水です。
                   </p>
                   <input
                     type="date"
                     value={storeVisitDate}
-                    onChange={(e) => setStoreVisitDate(e.target.value)}
+                    onChange={(e) => {
+                      orderIdempotencyKeyRef.current = null;
+                      setStoreVisitDate(e.target.value);
+                    }}
                     min={minDate}
                     max={maxDate}
-                    className="w-full px-4 py-2 border border-[#2f1b0f] rounded text-[#2f1b0f]"
+                    className="w-full rounded border border-[#2f1b0f] px-4 py-2 text-[#2f1b0f]"
                   />
                 </div>
+              )}
+
+              {submitMessage && (
+                <p className={`mb-4 text-sm ${submitError ? "text-red-700" : "text-green-700"}`}>
+                  {submitMessage}
+                </p>
               )}
 
               <div className="flex gap-4">
                 <button
                   onClick={() => setIsCheckout(false)}
-                  className="flex-1 py-4 bg-white border-2 border-[#2f1b0f] text-[#2f1b0f] font-semibold rounded-full hover:brightness-95 transition"
+                  className="flex-1 rounded-full border-2 border-[#2f1b0f] bg-white py-4 font-semibold text-[#2f1b0f] transition hover:brightness-95"
                 >
                   戻る
                 </button>
                 <button
                   onClick={handleSubmitOrder}
                   disabled={isLoading}
-                  className="flex-1 py-4 bg-[#2f1b0f] text-white font-semibold rounded-full hover:brightness-110 transition disabled:opacity-50"
+                  className="flex-1 rounded-full bg-[#2f1b0f] py-4 font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
                 >
                   {isLoading ? "処理中..." : "注文する"}
                 </button>
@@ -490,5 +558,13 @@ export default function StoreCartPage() {
         )}
       </div>
     </section>
+  );
+}
+
+export default function StoreCartPage() {
+  return (
+    <Suspense fallback={<StoreCartFallback />}>
+      <StoreCartContent />
+    </Suspense>
   );
 }

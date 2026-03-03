@@ -1,7 +1,8 @@
 import Image from "next/image";
+import { Tangerine } from "next/font/google";
 import { prisma } from "@/lib/prisma";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 const PHOTO_CATEGORIES = [
   { key: "interior", label: "内装" },
@@ -9,24 +10,47 @@ const PHOTO_CATEGORIES = [
   { key: "drink", label: "飲み物" },
 ] as const;
 
+const headingFont = Tangerine({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  display: "swap",
+});
+
+const menuHeadingSize = { base: 32, md: 60 };
+
 export default async function PhotosPage() {
   const photosTopPadding = "124px";
-  const photos = await prisma.photo
-    .findMany({
-      where: { isPublished: true },
-      orderBy: { sortOrder: "asc" },
-    })
-    .catch((error) => {
-      console.error("Failed to load photos", error);
-      return [];
-    });
+  const canQueryDatabase = /^(postgres|postgresql):\/\//.test(process.env.DATABASE_URL ?? "");
+  const photos = canQueryDatabase
+    ? await prisma.photo
+        .findMany({
+          where: { isPublished: true },
+          orderBy: { sortOrder: "asc" },
+        })
+        .catch((error) => {
+          console.error("Failed to load photos", error);
+          return [];
+        })
+    : [];
 
   return (
     <div
       className="space-y-8 pt-[var(--photos-top-padding)]"
       style={{ "--photos-top-padding": photosTopPadding } as Record<string, string>}
     >
-      <h1 className="text-3xl font-semibold">ギャラリー</h1>
+      <header className="text-center">
+        <h1
+          className={`menu-heading-title font-semibold text-[#2f1b0f] ${headingFont.className}`}
+          style={
+            {
+              "--menu-heading-size": `${menuHeadingSize.base}px`,
+              "--menu-heading-size-md": `${menuHeadingSize.md}px`,
+            } as Record<string, string>
+          }
+        >
+          GALLERY
+        </h1>
+      </header>
       {PHOTO_CATEGORIES.map((category) => {
         const items = photos.filter(
           (photo) => (photo.category ?? "food") === category.key

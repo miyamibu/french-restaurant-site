@@ -1,213 +1,185 @@
--- Supabase Row-Level Security (RLS) Policy Definitions
--- Execute these SQL statements in your Supabase SQL Editor
--- This ensures data access control is enforced at the database level
+-- Supabase Row-Level Security policies for order features.
+-- Apply after supabase/schema.sql
 
--- ============================================================================
--- 1. ENABLE RLS ON ALL TABLES
--- ============================================================================
+alter table if exists public.orders enable row level security;
+alter table if exists public.order_history enable row level security;
+alter table if exists public.bank_account enable row level security;
+alter table if exists public.order_actions enable row level security;
+alter table if exists public.human_tokens enable row level security;
+alter table if exists public.api_idempotency enable row level security;
+alter table if exists public.bank_account_history enable row level security;
 
-ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.order_history ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.reservations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.business_days ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.menu_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.photos ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.bank_account ENABLE ROW LEVEL SECURITY;
+drop policy if exists "orders_deny_anon_all" on public.orders;
+drop policy if exists "orders_deny_authenticated_all" on public.orders;
+drop policy if exists "orders_service_role_all" on public.orders;
 
--- ============================================================================
--- 2. ORDERS TABLE POLICIES
--- ============================================================================
+drop policy if exists "order_history_deny_anon_all" on public.order_history;
+drop policy if exists "order_history_deny_authenticated_all" on public.order_history;
+drop policy if exists "order_history_service_role_all" on public.order_history;
 
--- Allow anyone to INSERT orders (public order placement)
--- Note: Price validation happens at API layer (src/app/api/orders/route.ts)
-CREATE POLICY "allow_public_create_orders"
-ON public.orders
-FOR INSERT
-TO anon
-WITH CHECK (true);
+drop policy if exists "bank_account_deny_anon_all" on public.bank_account;
+drop policy if exists "bank_account_deny_authenticated_all" on public.bank_account;
+drop policy if exists "bank_account_service_role_all" on public.bank_account;
 
--- Prevent public from reading/updating orders
-CREATE POLICY "deny_public_read_orders"
-ON public.orders
-FOR SELECT
-TO anon
-USING (false);
+drop policy if exists "order_actions_deny_anon_all" on public.order_actions;
+drop policy if exists "order_actions_deny_authenticated_all" on public.order_actions;
+drop policy if exists "order_actions_service_role_all" on public.order_actions;
 
--- Allow authenticated users (via dashboard API) to read all orders
-CREATE POLICY "authenticated_read_orders"
-ON public.orders
-FOR SELECT
-TO authenticated
-USING (
-  -- Authenticated through API layer, not direct Supabase auth
-  true
-);
+drop policy if exists "human_tokens_deny_anon_all" on public.human_tokens;
+drop policy if exists "human_tokens_deny_authenticated_all" on public.human_tokens;
+drop policy if exists "human_tokens_service_role_all" on public.human_tokens;
 
--- Allow service role (API with service key) full access
--- Service role key bypasses RLS anyway, but we keep this explicit
-CREATE POLICY "admin_orders_full_access"
-ON public.orders
-TO service_role
-USING (true)
-WITH CHECK (true);
+drop policy if exists "api_idempotency_deny_anon_all" on public.api_idempotency;
+drop policy if exists "api_idempotency_deny_authenticated_all" on public.api_idempotency;
+drop policy if exists "api_idempotency_service_role_all" on public.api_idempotency;
 
--- ============================================================================
--- 3. ORDER_HISTORY TABLE POLICIES
--- ============================================================================
+drop policy if exists "bank_account_history_deny_anon_all" on public.bank_account_history;
+drop policy if exists "bank_account_history_deny_authenticated_all" on public.bank_account_history;
+drop policy if exists "bank_account_history_service_role_all" on public.bank_account_history;
 
--- Prevent public access
-CREATE POLICY "deny_public_order_history"
-ON public.order_history
-FOR ALL
-TO anon
-USING (false)
-WITH CHECK (false);
+create policy "orders_deny_anon_all"
+on public.orders
+for all
+to anon
+using (false)
+with check (false);
 
--- Allow authenticated access (admin only)
-CREATE POLICY "admin_order_history_access"
-ON public.order_history
-TO authenticated
-USING (true)
-WITH CHECK (true);
+create policy "orders_deny_authenticated_all"
+on public.orders
+for all
+to authenticated
+using (false)
+with check (false);
 
--- ============================================================================
--- 4. BANK_ACCOUNT TABLE POLICIES  
--- ============================================================================
+create policy "orders_service_role_all"
+on public.orders
+for all
+to service_role
+using (true)
+with check (true);
 
--- Critical: No public or anonymous access
-CREATE POLICY "deny_public_bank_account"
-ON public.bank_account
-FOR ALL
-TO anon
-USING (false)
-WITH CHECK (false);
+create policy "order_history_deny_anon_all"
+on public.order_history
+for all
+to anon
+using (false)
+with check (false);
 
--- Only authenticated/admin access for bank details
-CREATE POLICY "admin_bank_account_read"
-ON public.bank_account
-FOR SELECT
-TO authenticated
-USING (true);
+create policy "order_history_deny_authenticated_all"
+on public.order_history
+for all
+to authenticated
+using (false)
+with check (false);
 
-CREATE POLICY "admin_bank_account_write"
-ON public.bank_account
-FOR INSERT, UPDATE, DELETE
-TO authenticated
-WITH CHECK (true);
+create policy "order_history_service_role_all"
+on public.order_history
+for all
+to service_role
+using (true)
+with check (true);
 
--- ============================================================================
--- 5. MENU_ITEMS TABLE POLICIES
--- ============================================================================
+create policy "bank_account_deny_anon_all"
+on public.bank_account
+for all
+to anon
+using (false)
+with check (false);
 
--- Public read access for published items (for menu browsing)
-CREATE POLICY "public_read_published_items"
-ON public.menu_items
-FOR SELECT
-TO anon
-USING (is_published = true);
+create policy "bank_account_deny_authenticated_all"
+on public.bank_account
+for all
+to authenticated
+using (false)
+with check (false);
 
--- Prevent public from modifying menu
-CREATE POLICY "deny_public_modify_menu"
-ON public.menu_items
-FOR INSERT, UPDATE, DELETE
-TO anon
-WITH CHECK (false);
+create policy "bank_account_service_role_all"
+on public.bank_account
+for all
+to service_role
+using (true)
+with check (true);
 
--- Admin modification access
-CREATE POLICY "admin_modify_menu"
-ON public.menu_items
-FOR INSERT, UPDATE, DELETE
-TO authenticated
-WITH CHECK (true);
+create policy "order_actions_deny_anon_all"
+on public.order_actions
+for all
+to anon
+using (false)
+with check (false);
 
--- ============================================================================
--- 6. PHOTOS TABLE POLICIES
--- ============================================================================
+create policy "order_actions_deny_authenticated_all"
+on public.order_actions
+for all
+to authenticated
+using (false)
+with check (false);
 
--- Public read access for published photos
-CREATE POLICY "public_read_published_photos"
-ON public.photos
-FOR SELECT
-TO anon
-USING (is_published = true);
+create policy "order_actions_service_role_all"
+on public.order_actions
+for all
+to service_role
+using (true)
+with check (true);
 
--- Prevent public from modifying photos
-CREATE POLICY "deny_public_modify_photos"
-ON public.photos
-FOR INSERT, UPDATE, DELETE
-TO anon
-WITH CHECK (false);
+create policy "human_tokens_deny_anon_all"
+on public.human_tokens
+for all
+to anon
+using (false)
+with check (false);
 
--- Admin modification access
-CREATE POLICY "admin_modify_photos"
-ON public.photos
-FOR INSERT, UPDATE, DELETE
-TO authenticated
-WITH CHECK (true);
+create policy "human_tokens_deny_authenticated_all"
+on public.human_tokens
+for all
+to authenticated
+using (false)
+with check (false);
 
--- ============================================================================
--- 7. RESERVATIONS TABLE POLICIES
--- ============================================================================
+create policy "human_tokens_service_role_all"
+on public.human_tokens
+for all
+to service_role
+using (true)
+with check (true);
 
--- Allow public to create reservations
-CREATE POLICY "public_create_reservations"
-ON public.reservations
-FOR INSERT
-TO anon
-WITH CHECK (true);
+create policy "api_idempotency_deny_anon_all"
+on public.api_idempotency
+for all
+to anon
+using (false)
+with check (false);
 
--- Prevent public from reading/modifying reservations
-CREATE POLICY "deny_public_read_reservations"
-ON public.reservations
-FOR SELECT
-TO anon
-USING (false);
+create policy "api_idempotency_deny_authenticated_all"
+on public.api_idempotency
+for all
+to authenticated
+using (false)
+with check (false);
 
--- Admin access for reservations
-CREATE POLICY "admin_reservations_access"
-ON public.reservations
-TO authenticated
-USING (true)
-WITH CHECK (true);
+create policy "api_idempotency_service_role_all"
+on public.api_idempotency
+for all
+to service_role
+using (true)
+with check (true);
 
--- ============================================================================
--- 8. BUSINESS_DAYS TABLE POLICIES
--- ============================================================================
+create policy "bank_account_history_deny_anon_all"
+on public.bank_account_history
+for all
+to anon
+using (false)
+with check (false);
 
--- Public read access (for checking if restaurant is open)
-CREATE POLICY "public_read_business_days"
-ON public.business_days
-FOR SELECT
-TO anon
-USING (true);
+create policy "bank_account_history_deny_authenticated_all"
+on public.bank_account_history
+for all
+to authenticated
+using (false)
+with check (false);
 
--- Prevent public from modifying business days
-CREATE POLICY "deny_public_modify_business_days"
-ON public.business_days
-FOR INSERT, UPDATE, DELETE
-TO anon
-WITH CHECK (false);
-
--- Admin modification access
-CREATE POLICY "admin_modify_business_days"
-ON public.business_days
-FOR INSERT, UPDATE, DELETE
-TO authenticated
-WITH CHECK (true);
-
--- ============================================================================
--- VERIFICATION QUERIES
--- ============================================================================
-
--- Verify RLS is enabled on all tables
-SELECT schemaname, tablename, rowsecurity
-FROM pg_tables
-WHERE schemaname = 'public'
-AND tablename IN ('orders', 'order_history', 'reservations', 'business_days', 'menu_items', 'photos', 'bank_account')
-ORDER BY tablename;
-
--- Show all policies
-SELECT table_name, policyname, permissive, roles, qual, with_check
-FROM pg_policies
-WHERE schema_name = 'public'
-ORDER BY table_name, policyname;
+create policy "bank_account_history_service_role_all"
+on public.bank_account_history
+for all
+to service_role
+using (true)
+with check (true);

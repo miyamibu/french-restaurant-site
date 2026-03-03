@@ -5,6 +5,8 @@ import { isAuthorized } from "@/lib/basic-auth";
 import { apiError } from "@/lib/api-security";
 import { getRequestId, logError } from "@/lib/logger";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   const requestId = getRequestId(request);
   const route = "/api/admin/reservations";

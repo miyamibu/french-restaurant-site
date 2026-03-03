@@ -5,6 +5,8 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { apiError, enforceWriteRequestSecurity } from "@/lib/api-security";
 import { getRequestId, logError } from "@/lib/logger";
 
+export const dynamic = "force-dynamic";
+
 function unauthorized(requestId: string) {
   return apiError(401, {
     error: "Unauthorized",

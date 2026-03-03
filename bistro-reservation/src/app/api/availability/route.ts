@@ -5,6 +5,8 @@ import { apiError } from "@/lib/api-security";
 import { getRequestId, logError } from "@/lib/logger";
 import { dateStringSchema } from "@/lib/validation";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   const requestId = getRequestId(request);
 

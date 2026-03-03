@@ -8,6 +8,8 @@ import { apiError } from "@/lib/api-security";
 import { getRequestId, logError } from "@/lib/logger";
 import { monthStringSchema } from "@/lib/validation";
 
+export const dynamic = "force-dynamic";
+
 function pad(num: number) {
   return String(num).padStart(2, "0");
 }

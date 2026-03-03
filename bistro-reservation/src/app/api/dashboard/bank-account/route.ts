@@ -12,6 +12,8 @@ import {
 } from "@/lib/validation";
 import { getRequestId, logError, logInfo } from "@/lib/logger";
 
+export const dynamic = "force-dynamic";
+
 function unauthorized(requestId: string) {
   return apiError(401, {
     error: "Unauthorized",

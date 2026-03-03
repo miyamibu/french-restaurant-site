@@ -6,6 +6,8 @@ import { apiError, enforceWriteRequestSecurity } from "@/lib/api-security";
 import { updateReservationStatusSchema, zodFields } from "@/lib/validation";
 import { getRequestId, logError } from "@/lib/logger";
 
+export const dynamic = "force-dynamic";
+
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function GET(request: NextRequest, { params }: RouteContext) {

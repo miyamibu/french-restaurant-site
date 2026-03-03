@@ -5,6 +5,8 @@ import { apiError, enforceWriteRequestSecurity } from "@/lib/api-security";
 import { upsertBusinessDaySchema, zodFields } from "@/lib/validation";
 import { getRequestId, logError } from "@/lib/logger";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   const requestId = getRequestId(request);
 

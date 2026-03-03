@@ -7,6 +7,7 @@ import { env, hasLineMessagingEnv } from "@/lib/env";
 import { apiError } from "@/lib/api-security";
 import { getRequestId, logError, logInfo } from "@/lib/logger";
 
+export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 function isCronAuthorized(request: NextRequest) {

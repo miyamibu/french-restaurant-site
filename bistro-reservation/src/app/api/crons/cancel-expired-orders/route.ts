@@ -5,6 +5,7 @@ import { apiError } from "@/lib/api-security";
 import { executeCancelOrderAction, OrderActionError } from "@/lib/order-actions";
 import { getRequestId, logError, logInfo } from "@/lib/logger";
 
+export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 function isAuthorizedCron(req: NextRequest) {

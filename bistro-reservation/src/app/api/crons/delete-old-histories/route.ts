@@ -4,6 +4,7 @@ import { env } from "@/lib/env";
 import { apiError } from "@/lib/api-security";
 import { getRequestId, logError, logInfo } from "@/lib/logger";
 
+export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 const ORDER_HISTORY_RETENTION_DAYS = 365;
 

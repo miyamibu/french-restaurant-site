@@ -24,6 +24,8 @@ import {
 } from "@/lib/order-actions";
 import { getRequestId } from "@/lib/logger";
 
+export const dynamic = "force-dynamic";
+
 type RouteContext = { params: Promise<{ id: string }> };
 
 function getIdempotencyKey(request: NextRequest) {

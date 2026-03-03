@@ -7,6 +7,8 @@ import { apiError, enforceWriteRequestSecurity } from "@/lib/api-security";
 import { getRequestId, logError, logWarn } from "@/lib/logger";
 import { pdfToImageSchema, zodFields } from "@/lib/validation";
 
+export const dynamic = "force-dynamic";
+
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX_REQUESTS = 10;
 const MAX_CONCURRENT_CONVERSIONS = 2;

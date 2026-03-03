@@ -10,6 +10,8 @@ import { getContactPayload } from "@/lib/contact";
 import { env } from "@/lib/env";
 import { getRequestId, logError, logInfo } from "@/lib/logger";
 
+export const dynamic = "force-dynamic";
+
 const RETRIES = 3;
 
 export async function POST(request: NextRequest) {

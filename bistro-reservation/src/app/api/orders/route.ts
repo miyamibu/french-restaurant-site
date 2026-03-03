@@ -16,6 +16,8 @@ import {
 } from "@/lib/order-actions";
 import { getRequestId, logError, logInfo, logWarn } from "@/lib/logger";
 
+export const dynamic = "force-dynamic";
+
 const STORE_VISIT_MIN_DAYS = 14;
 const STORE_VISIT_MAX_DAYS = 30;
 

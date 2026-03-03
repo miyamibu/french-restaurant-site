@@ -2,7 +2,7 @@ import Image from "next/image";
 import { Tangerine } from "next/font/google";
 import { prisma } from "@/lib/prisma";
 
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 const PHOTO_CATEGORIES = [
   { key: "interior", label: "内装" },

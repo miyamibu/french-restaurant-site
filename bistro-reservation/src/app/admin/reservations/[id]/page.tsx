@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { StatusForm } from "@/components/status-form";
 import { parseReservationNote } from "@/lib/reservation-note";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminReservationDetail({
   params,
 }: {

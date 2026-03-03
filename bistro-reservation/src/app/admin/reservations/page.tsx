@@ -7,6 +7,8 @@ import { ReservationStatus } from "@prisma/client";
 import CancelButton from "@/components/cancel-button";
 import { parseReservationNote } from "@/lib/reservation-note";
 
+export const dynamic = "force-dynamic";
+
 function extractLastName(fullName: string): string {
   const normalized = fullName.trim();
   if (!normalized) return "";

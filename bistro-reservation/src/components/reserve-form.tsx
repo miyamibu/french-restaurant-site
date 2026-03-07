@@ -20,7 +20,7 @@ import {
   SelectOption,
   SelectTrigger,
 } from "@/components/select";
-import { CONTACT_PHONE_DISPLAY, CONTACT_MESSAGE } from "@/lib/contact";
+import { CONTACT_PHONE_DISPLAY, CONTACT_MESSAGE, CONTACT_TEL_LINK } from "@/lib/contact";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -258,34 +258,36 @@ export function ReserveForm({
   const monthDays = getDaysInMonth(monthStart);
   const firstWeekday = getDay(monthStart);
   const mainCapacity = 12;
-  const calendarDayCircleSize = 30;
-  const calendarDayCellWidth = 36;
-  const calendarDayMarkerNormalFontSize = 13;
-  const calendarDayCallMarkerFontSize = 11;
-  const calendarDayMarkerSymbolSize = 14;
+  const calendarDayCircleSize = 28;
+  const calendarDayCellWidth = 34;
+  const calendarDayMarkerNormalFontSize = 12;
+  const calendarDayCallMarkerFontSize = 10;
+  const calendarDayMarkerSymbolSize = 13;
   const calendarDayMarkerSymbolStrokeWidth = 2.2;
   const calendarDayMarkerNormalFontWeight = 900;
   const calendarDayCallMarkerFontWeight = 700;
-  const calendarDayMarkerTopMargin = 10;
-  const calendarDayGapX = 4;
-  const calendarDayGapY = 4;
-  const calendarMonthNavButtonSize = 40;
-  const calendarMonthNavArrowFontSize = 32;
+  const calendarDayMarkerTopMargin = 8;
+  const calendarDayGapX = 3;
+  const calendarDayGapY = 3;
+  const calendarMonthNavButtonSize = 36;
+  const calendarMonthNavArrowFontSize = 28;
   const calendarMonthNavArrowFontWeight = 600;
   const calendarMonthNavArrowOffsetY = "-0.1cm";
   const formFieldRadius = 6;
-  const reserveButtonKnobWidth = 110;
-  const reserveButtonKnobHeight = 62;
+  const reserveButtonKnobWidth = 92;
+  const reserveButtonKnobHeight = 52;
   const reserveButtonBorderWidth = 2;
   const reserveButtonOffsetX = 0;
-  const reserveButtonOffsetY = 0;
+  const reserveButtonOffsetY = "-0.5cm";
   const rightPanelSectionGap = 50;
   const rightPanelPairGap = 12;
   const fieldLabelGap = 6;
-  const infoInlineFontSize = 14;
-  const infoInlineMessage = `貸し切りは10名以上でお申し込みください。
-当日も席が空いている場合がありますのでご連絡いただけたらと思います。`;
-  const cancelInlineMessage = `キャンセルはお電話にてお願いいたします。電話番号：${CONTACT_PHONE_DISPLAY}`;
+  const infoInlineFontSize = 13;
+  const infoInlineLead = "貸し切りは10名以上でお申し込みください。";
+  const infoInlineMessage = "当日も席が空いている場合がありますのでご連絡いただけたらと思います。";
+  const cancelInlineMessage = "キャンセルはお電話にてお願いいたします。";
+  const cancelInlinePhone = `電話番号：${CONTACT_PHONE_DISPLAY}`;
+  const toCssLength = (value: number | string) => (typeof value === "number" ? `${value}px` : value);
   const calendarDayMarkerHeight =
     Math.max(
       calendarDayMarkerNormalFontSize,
@@ -319,7 +321,7 @@ export function ReserveForm({
 
       <section className="p-4">
         <div className="grid gap-6 md:grid-cols-[auto,minmax(0,1fr)] md:items-stretch">
-          <div className="space-y-4">
+          <div className="-ml-[38px] -mt-[0.5cm] space-y-4 md:ml-0 md:mt-0">
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-semibold text-[#2f1b0f]">来店日</p>
               <div className="rounded-md border-0 bg-white px-3 py-2 text-sm text-[#2f1b0f]">
@@ -522,13 +524,14 @@ export function ReserveForm({
             </div>
           </div>
 
-          <div className="flex h-full flex-col" style={{ rowGap: `${rightPanelSectionGap}px` }}>
-            <p
+          <div className="-ml-[38px] flex h-full flex-col md:ml-0" style={{ rowGap: `${rightPanelSectionGap}px` }}>
+            <div
               className="whitespace-pre-line rounded-md border-0 bg-white px-3 py-2 text-[#6f5b46]"
               style={{ fontSize: `${infoInlineFontSize}px` }}
             >
-              {infoInlineMessage}
-            </p>
+              <p className="whitespace-nowrap">{infoInlineLead}</p>
+              <p>{infoInlineMessage}</p>
+            </div>
 
             <div
               className="grid sm:grid-cols-2"
@@ -663,27 +666,35 @@ export function ReserveForm({
         </div>
       </section>
 
-      <div className="space-y-2">
+      <div className="-ml-[22px] space-y-2 md:ml-0">
         <Label htmlFor="note">要望（任意）</Label>
         <Textarea
           id="note"
           value={form.note}
           onChange={(e) => updateField("note", e.target.value)}
-          className="border-black focus:ring-black/20 focus:border-black"
+          className="w-[calc(100%+23px)] border-black focus:ring-black/20 focus:border-black md:w-full"
           placeholder="アレルギーや記念日のご希望など"
         />
       </div>
 
-      <div className="flex justify-end pt-2">
-        <div className="flex flex-wrap items-center justify-end gap-4">
-          <p className="text-sm text-[#4a3121]">{cancelInlineMessage}</p>
+      <div className="-ml-[38px] space-y-3 pr-[38px] pt-2 md:ml-0 md:pr-0">
+        <div className="ml-4 flex w-[calc(100%-16px)] flex-col items-start gap-y-0.5 text-[12px] leading-tight tracking-[-0.01em] text-[#4a3121] md:ml-0 md:w-full md:flex-row md:flex-wrap md:items-center md:justify-end md:gap-4 md:text-sm md:leading-normal md:tracking-normal">
+          <p className="min-w-0 whitespace-nowrap">{cancelInlineMessage}</p>
+          <a
+            className="text-left underline md:whitespace-nowrap"
+            href={CONTACT_TEL_LINK}
+          >
+            {cancelInlinePhone}
+          </a>
+        </div>
+        <div className="ml-4 flex w-[calc(100%+45px)] justify-end md:ml-0 md:w-full">
           <button
             type="submit"
             className="relative inline-flex shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7a5a31]/35 disabled:cursor-not-allowed disabled:opacity-50"
             style={{
               width: `${reserveButtonKnobWidth}px`,
               height: `${reserveButtonKnobHeight}px`,
-              transform: `translate(${reserveButtonOffsetX}px, ${reserveButtonOffsetY}px)`,
+              transform: `translate(${toCssLength(reserveButtonOffsetX)}, ${toCssLength(reserveButtonOffsetY)})`,
             }}
             disabled={
               submitting ||
@@ -693,14 +704,14 @@ export function ReserveForm({
             aria-label={submitting ? "送信中..." : "予約する"}
           >
             <span
-              className="inline-flex items-center justify-center rounded-[30px] bg-gradient-to-b from-[#fffdfa] via-[#f7f2ea] to-[#efe6da]"
+              className="inline-flex items-center justify-center rounded-[26px] bg-gradient-to-b from-[#fffdfa] via-[#f7f2ea] to-[#efe6da]"
               style={{
                 width: `${reserveButtonKnobWidth}px`,
                 height: `${reserveButtonKnobHeight}px`,
                 border: `${reserveButtonBorderWidth}px solid #8f6a39`,
               }}
             >
-              <span className="text-lg font-semibold tracking-wide text-[#7a5528]">
+              <span className="text-base font-semibold tracking-wide text-[#7a5528] md:text-lg">
                 {submitting ? "送信中" : "予約"}
               </span>
             </span>

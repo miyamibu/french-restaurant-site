@@ -54,7 +54,7 @@ export function AgentReservationBuilder() {
     arrivalTime,
     course,
   });
-  const handoffUrl = `/reserve?${params.toString()}`;
+  const handoffUrl = `/booking?${params.toString()}`;
 
   async function handleCopy() {
     try {
@@ -73,7 +73,7 @@ export function AgentReservationBuilder() {
     <div className="mt-5 rounded-2xl border border-[#cfa96d]/40 bg-[#fff7e6] p-4 text-sm text-[#4a3121]">
       <p className="font-semibold text-[#2f1b0f]">Reservation handoff builder</p>
       <p className="mt-2 leading-6">
-        Optional fallback for agents that want to hand the guest to `/reserve` instead of calling
+        Optional fallback for agents that want to hand the guest to `/booking` instead of calling
         ` POST /api/reservations` directly. Keep personal data in the POST body, not in this URL.
       </p>
 

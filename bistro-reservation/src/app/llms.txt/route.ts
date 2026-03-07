@@ -17,15 +17,15 @@ Reservation:
 - Optional JSON fields: arrivalTime, note, lineUserId, course
 - Required header: Content-Type: application/json
 - Optional header: X-Requested-With: XMLHttpRequest
-- Optional handoff review URL: /reserve?mode=agent&date=YYYY-MM-DD&partySize=2&arrivalTime=18:00&course=...
+- Optional handoff review URL: /booking?mode=agent&date=YYYY-MM-DD&partySize=2&arrivalTime=18:00&course=...
 
 Store:
-- Warm handoff only: /store/apron?mode=agent&qty=1
+- Warm handoff only: /on-line-store/apron?mode=agent&qty=1
 
 Important:
 - Final store submission must be completed by a human on the destination page.
 - Do not place names, phone numbers, emails, or addresses in query strings. Put personal data in POST bodies only.
-- Use /info for business hours, phone contact, and in-person policies.
+- Use /access for business hours, phone contact, and in-person policies.
 `;
 
   return new NextResponse(body, {

@@ -73,7 +73,7 @@ function OrderCompleteContent() {
         </div>
 
         <Link
-          href="/store"
+          href="/on-line-store"
           className="inline-block py-4 px-8 bg-[#2f1b0f] text-white font-semibold rounded-full hover:brightness-110 transition"
         >
           商品一覧へ戻る

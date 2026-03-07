@@ -166,6 +166,38 @@ function Assert-Contains {
   }
 }
 
+function Get-RepoNodeProcesses {
+  $escapedRepoRoot = [regex]::Escape($repoRoot)
+  return @(
+    Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
+      Where-Object {
+        $null -ne $_.CommandLine -and
+        $_.CommandLine -match $escapedRepoRoot
+      }
+  )
+}
+
+function Wait-For-RepoNodeProcessesToExit {
+  param(
+    [int]$TimeoutSeconds = 10
+  )
+
+  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+  do {
+    $processes = @(Get-RepoNodeProcesses)
+    if ($processes.Count -eq 0) {
+      return
+    }
+
+    Start-Sleep -Milliseconds 250
+  } while ((Get-Date) -lt $deadline)
+
+  $details = $processes | ForEach-Object {
+    "PID $($_.ProcessId): $($_.CommandLine)"
+  }
+  throw "Repo node processes are still running and may lock Prisma. Stop these first: $($details -join ' | ')"
+}
+
 $requiredEnvKeys = @(
   "DATABASE_URL",
   "BASE_URL",
@@ -196,6 +228,7 @@ $recommendedEnvKeys = @(
   "LIFF_ID"
 )
 
+$serverProcess = $null
 $serverProcessId = $null
 $runId = [Guid]::NewGuid().ToString("N")
 $stdoutLog = Join-Path $env:TEMP "bistro-prelaunch-$Port-$runId.out.log"
@@ -299,6 +332,8 @@ try {
     throw "npm run test failed."
   }
 
+  Wait-For-RepoNodeProcessesToExit
+
   Write-Step "Running production build"
   & npm.cmd run build
   if ($LASTEXITCODE -ne 0) {
@@ -312,7 +347,7 @@ try {
     throw "Port $Port is already in use by PID $($existingListener.OwningProcess)."
   }
 
-  $null = Start-Process -FilePath "npm.cmd" `
+  $serverProcess = Start-Process -FilePath "npm.cmd" `
     -ArgumentList "run", "start", "--", "-p", "$Port" `
     -WorkingDirectory $repoRoot `
     -RedirectStandardOutput $stdoutLog `
@@ -380,6 +415,9 @@ try {
   Write-Host "Logs: $stdoutLog"
   Write-Host "Logs: $stderrLog"
 } finally {
+  if ($null -ne $serverProcess) {
+    Stop-Process -Id $serverProcess.Id -Force -ErrorAction SilentlyContinue
+  }
   if ($null -ne $serverProcessId) {
     Stop-Process -Id $serverProcessId -Force -ErrorAction SilentlyContinue
   }

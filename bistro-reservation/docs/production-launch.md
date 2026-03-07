@@ -175,10 +175,10 @@ The probe should return `400` with `code=VALIDATION_ERROR`. It must not fail wit
 Confirm these manually in a browser:
 
 1. `/agents`
-2. `/reserve`
-3. `/store`
-4. `/store/apron?mode=agent&qty=2`
-5. `/store/cart?mode=agent`
+2. `/booking`
+3. `/on-line-store`
+4. `/on-line-store/apron?mode=agent&qty=2`
+5. `/on-line-store/cart?mode=agent`
 6. `/dashboard/orders` prompts for Basic auth
 7. `/admin/reservations` prompts for Basic auth
 

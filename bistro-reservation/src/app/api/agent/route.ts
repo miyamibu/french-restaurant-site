@@ -9,15 +9,15 @@ export function GET(request: Request) {
     legacy_alias: "/ai",
     discovery: {
       llms: "/llms.txt",
-      info: "/info",
+      info: "/access",
     },
     routes: {
-      reserve: "/reserve",
+      reserve: "/booking",
       reservations_api: "/api/reservations",
-      store: "/store",
-      store_apron: "/store/apron",
-      store_cart: "/store/cart",
-      info: "/info",
+      store: "/on-line-store",
+      store_apron: "/on-line-store/apron",
+      store_cart: "/on-line-store/cart",
+      info: "/access",
     },
     reservation: {
       supports_direct_completion: true,
@@ -39,14 +39,14 @@ export function GET(request: Request) {
       },
       handoff: {
         template:
-          "/reserve?mode=agent&date={YYYY-MM-DD}&partySize={1-12}&arrivalTime={HH:MM}&course={URL_ENCODED_COURSE}",
+          "/booking?mode=agent&date={YYYY-MM-DD}&partySize={1-12}&arrivalTime={HH:MM}&course={URL_ENCODED_COURSE}",
         purpose: "Optional review bridge",
       },
     },
     store: {
       supports_direct_completion: false,
       warm_handoff: {
-        template: "/store/apron?mode=agent&qty={1-10}",
+        template: "/on-line-store/apron?mode=agent&qty={1-10}",
         stop_before: "Customer details, payment selection, and final order submission",
       },
     },
@@ -57,8 +57,8 @@ export function GET(request: Request) {
     ],
     compatibility: {
       reservation_handoff_template:
-        "/reserve?mode=agent&date={YYYY-MM-DD}&partySize={1-12}&arrivalTime={HH:MM}&course={URL_ENCODED_COURSE}",
-      store_handoff_template: "/store/apron?mode=agent&qty={1-10}",
+        "/booking?mode=agent&date={YYYY-MM-DD}&partySize={1-12}&arrivalTime={HH:MM}&course={URL_ENCODED_COURSE}",
+      store_handoff_template: "/on-line-store/apron?mode=agent&qty={1-10}",
     },
   };
 

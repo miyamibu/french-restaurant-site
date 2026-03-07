@@ -8,7 +8,7 @@ const sectionClassName =
 
 export default function AgentsPage() {
   const reservationEndpoint = "POST /api/reservations";
-  const storeTemplate = "/store/apron?mode=agent&qty={1-10}";
+  const storeTemplate = "/on-line-store/apron?mode=agent&qty={1-10}";
 
   return (
     <section
@@ -60,13 +60,13 @@ export default function AgentsPage() {
             <AgentReservationBuilder />
             <div className="mt-5 flex flex-wrap gap-3">
               <Link
-                href="/reserve?mode=agent"
+                href="/booking?mode=agent"
                 className="inline-flex items-center justify-center rounded-full bg-[#2f1b0f] px-5 py-2 text-sm font-semibold text-white transition hover:brightness-110"
               >
-                Open /reserve
+                Open /booking
               </Link>
               <Link
-                href="/info"
+                href="/access"
                 className="inline-flex items-center justify-center rounded-full border border-[#2f1b0f] px-5 py-2 text-sm font-semibold text-[#2f1b0f] transition hover:bg-white/70"
               >
                 Review Policies
@@ -93,13 +93,13 @@ export default function AgentsPage() {
             <AgentStoreBuilder />
             <div className="mt-5 flex flex-wrap gap-3">
               <Link
-                href="/store/apron?mode=agent&qty=1"
+                href="/on-line-store/apron?mode=agent&qty=1"
                 className="inline-flex items-center justify-center rounded-full bg-[#2f1b0f] px-5 py-2 text-sm font-semibold text-white transition hover:brightness-110"
               >
                 Open Apron Handoff
               </Link>
               <Link
-                href="/store"
+                href="/on-line-store"
                 className="inline-flex items-center justify-center rounded-full border border-[#2f1b0f] px-5 py-2 text-sm font-semibold text-[#2f1b0f] transition hover:bg-white/70"
               >
                 Browse Store
@@ -119,8 +119,8 @@ export default function AgentsPage() {
                 <li>Seat reservations may be completed directly by AI through `/api/reservations`.</li>
                 <li>Reservation handoff URLs are optional and are safe only for non-sensitive fields.</li>
                 <li>
-                  Final order submission must be completed by the guest after reviewing `/store/apron`
-                  and `/store/cart`.
+                  Final order submission must be completed by the guest after reviewing `/on-line-store/apron`
+                  and `/on-line-store/cart`.
                 </li>
                 <li>Do not place names, phone numbers, email addresses, or delivery addresses in query strings.</li>
               </ul>

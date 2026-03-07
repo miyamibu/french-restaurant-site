@@ -184,7 +184,7 @@ function StoreCartContent() {
 
       if (response.ok) {
         clearCart();
-        router.push(`/store/order-complete?method=${paymentMethod}`);
+        router.push(`/on-line-store/order-complete?method=${paymentMethod}`);
       } else {
         const errorData = await response.json();
         setSubmitError(true);
@@ -237,7 +237,7 @@ function StoreCartContent() {
             <p className="text-xl font-semibold text-[#2f1b0f]">カートは空です</p>
             <p className="text-sm text-[#4a3121]">商品ページで「カートに入れる」を押すとここに表示されます。</p>
             <Link
-              href="/store"
+              href="/on-line-store"
               className="inline-flex items-center justify-center rounded-full border border-[#2f1b0f] px-6 py-2 text-sm text-[#2f1b0f] transition hover:bg-[#f6f1e7]"
             >
               オンラインストアへ戻る
@@ -322,7 +322,7 @@ function StoreCartContent() {
 
             <div className="mb-12 flex gap-4">
               <Link
-                href="/store"
+                href="/on-line-store"
                 className="flex-1 rounded-full border-2 border-[#2f1b0f] bg-white py-4 text-center font-semibold text-[#2f1b0f] transition hover:brightness-95"
               >
                 買い物を続ける

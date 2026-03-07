@@ -125,7 +125,7 @@ export default async function AdminReservations({
           <p className="text-sm text-gray-600">管理画面</p>
           <h1 className="text-2xl font-semibold">予約一覧</h1>
         </div>
-        <Link href="/reserve" className="text-brand-700 underline">公開予約フォーム</Link>
+        <Link href="/booking" className="text-brand-700 underline">公開予約フォーム</Link>
       </header>
 
       <form className="card !border-0 p-4 !shadow-none flex flex-wrap gap-4" method="get">

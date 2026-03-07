@@ -10,7 +10,7 @@ const tangerine = Tangerine({
   display: "swap",
 });
 
-const menuHeadingSize = { base: 17, md: 45 };
+const menuHeadingSize = { base: 24, md: 45 };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -21,18 +21,17 @@ function getFirstParam(value: string | string[] | undefined) {
 export default async function ReservePage({ searchParams }: { searchParams?: SearchParams }) {
   const resolvedSearchParams = (await searchParams) ?? {};
   const defaultDate = formatJst(addDays(todayJst(), 1));
-  const reservePageSpacing = { top:150, bottom: 80 }; // 上下余白の微調整(px)
+  const reservePageSpacing = { top: 150 }; // 上余白の微調整(px)
   const isAgentMode = getFirstParam(resolvedSearchParams.mode) === "agent";
 
   return (
     <div
-      className="space-y-6"
+      className="space-y-6 pb-1 md:pb-20"
       style={{
         paddingTop: `${reservePageSpacing.top}px`,
-        paddingBottom: `${reservePageSpacing.bottom}px`,
       }}
     >
-      <header className="text-center">
+      <header className="-mt-[76px] text-center md:mt-0">
         <h1
           className={`menu-heading-title font-semibold text-[#2f1b0f] ${tangerine.className}`}
           style={

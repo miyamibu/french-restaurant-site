@@ -7,11 +7,11 @@ import { Instagram, Menu, ShoppingCart, X } from "lucide-react";
 import { Playfair_Display } from "next/font/google";
 const links = [
   { href: "/", label: "ホーム" },
-  { href: "/reserve", label: "予約" },
+  { href: "/booking", label: "予約" },
   { href: "/menu", label: "メニュー" },
-  { href: "/photos", label: "写真" },
-  { href: "/info", label: "アクセス" },
-  { href: "/store", label: "オンラインストア" },
+  { href: "/picture", label: "写真" },
+  { href: "/access", label: "アクセス" },
+  { href: "/on-line-store", label: "オンラインストア" },
 ] as const;
 const logoFont = Playfair_Display({
   subsets: ["latin"],
@@ -22,14 +22,16 @@ export function TopNav() {
   const cartIconPos = { x: -140 }; // カートアイコンの左右微調整(px)
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const showCartIcon = pathname === "/store" || (pathname.startsWith("/store/") && pathname !== "/store/cart");
+  const showCartIcon =
+    pathname === "/on-line-store" ||
+    (pathname.startsWith("/on-line-store/") && pathname !== "/on-line-store/cart");
 
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
 
   return (
-    <div className="relative pointer-events-auto">
+    <div className="relative mx-auto w-[calc(100%-0.75rem)] max-w-[23rem] pointer-events-auto md:w-full md:max-w-none">
       <div className="relative flex items-center justify-between rounded-full bg-white/80 px-4 py-2 shadow-sm backdrop-blur">
         <a
           href="https://www.instagram.com/"
@@ -48,14 +50,14 @@ export function TopNav() {
           style={{ transform: `translate(-50%, -50%) translateX(${logoPos.x}px)` }}
           onClick={() => setOpen(false)} // もしメニューが開いてたら閉じる
         >
-          <p className="text-[11px] uppercase tracking-[0.25em] text-[#b68c5a]">Bistro １０４</p>
+          <p className="text-[10px] uppercase tracking-[0.14em] text-[#b68c5a]">Bistro １０４</p>
           <p className="text-lg font-semibold text-[#2f1b0f]">Cent Quatre</p>
         </Link>
 
         <div className="z-10 flex items-center gap-3">
           {showCartIcon && (
             <Link
-              href="/store/cart"
+              href="/on-line-store/cart"
               aria-label="カート"
               className="flex items-center justify-center text-[#6b3b20] transition hover:text-[#8a4c29]"
               style={{ transform: `translateX(${cartIconPos.x}px)` }}

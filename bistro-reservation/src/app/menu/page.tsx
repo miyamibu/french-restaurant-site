@@ -11,8 +11,8 @@ const tangerine = Tangerine({
 });
 
 const TOP_GAP_PX = 110;
+const MOBILE_TOP_GAP_REDUCTION_PX = 45;
 const SLIDESHOW_INTERVAL_MS = 4000;
-const COURSE_ANCHOR_SCROLL_MARGIN_PX = TOP_GAP_PX + 56;
 const DRINK_SECTION_SCROLL_MARGIN_PX = 76; // about 2cm from top
 const courseTitleSize = { base: 28, md: 60 };
 const menuHeadingSize = { base: 32, md: 60 };
@@ -66,6 +66,22 @@ const SLIDESHOW_SIZE = {
   // Bottom space for desktop right slideshow area.
   bottomGapPx: 24,
   radiusPx: 50,
+};
+
+const MOBILE_MENU_LAYOUT = {
+  itemGapYPx: 18,
+  blockPaddingBottomPx: 20,
+  accordionPaddingXPx: 18,
+  accordionPaddingYPx: 14,
+  accordionRowMinHeightPx: 50,
+  accordionLabelSizePx: 29,
+  accordionLabelOffsetXPx: 0,
+  accordionLabelOffsetYPx: -1,
+  accordionLabelLetterSpacingEm: 0.04,
+  plusSizePx: 34,
+  plusHitAreaPx: 36,
+  plusOffsetXPx: 0,
+  plusOffsetYPx: -1,
 };
 
 type MenuSection = "course" | "drink" | "a-la-carte" | "sweets";
@@ -133,10 +149,36 @@ const sweetsMenu = {
   photos: ["/photos/extract_1~2.png", "/photos/extract_2~2.png"],
 };
 
+function useIsMobileLayout(breakpointPx = 767) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(`(max-width: ${breakpointPx}px)`);
+    const onChange = () => setIsMobile(mediaQuery.matches);
+
+    onChange();
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", onChange);
+      return () => mediaQuery.removeEventListener("change", onChange);
+    }
+
+    mediaQuery.addListener(onChange);
+    return () => mediaQuery.removeListener(onChange);
+  }, [breakpointPx]);
+
+  return isMobile;
+}
+
 export default function MenuPage() {
+  const isMobileLayout = useIsMobileLayout();
   const [openSection, setOpenSection] = useState<MenuSection | null>(null);
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
   const [activeHash, setActiveHash] = useState("");
+  const topGapPx = isMobileLayout
+    ? Math.max(0, TOP_GAP_PX - MOBILE_TOP_GAP_REDUCTION_PX)
+    : TOP_GAP_PX;
+  const courseAnchorScrollMarginPx = topGapPx + 56;
   const leftColumnPercent = Math.min(
     70,
     Math.max(30, LAYOUT_SIZE.desktopLeftPercent + LAYOUT_SIZE.leftWidthOffsetPercent)
@@ -145,9 +187,48 @@ export default function MenuPage() {
     70,
     Math.max(30, LAYOUT_SIZE.desktopRightPercent + LAYOUT_SIZE.rightWidthOffsetPercent)
   );
+  const itemGapYPx = isMobileLayout
+    ? MOBILE_MENU_LAYOUT.itemGapYPx
+    : LEFT_COLUMN_VERTICAL_SIZE.itemGapYPx;
+  const blockPaddingBottomMobilePx = isMobileLayout
+    ? MOBILE_MENU_LAYOUT.blockPaddingBottomPx
+    : LEFT_COLUMN_VERTICAL_SIZE.blockPaddingBottomMobilePx;
+  const accordionPaddingXPx = isMobileLayout
+    ? MOBILE_MENU_LAYOUT.accordionPaddingXPx
+    : ACCORDION_SIZE.paddingX;
+  const accordionPaddingYPx = isMobileLayout
+    ? MOBILE_MENU_LAYOUT.accordionPaddingYPx
+    : LEFT_COLUMN_VERTICAL_SIZE.accordionPaddingYPx;
+  const accordionRowMinHeightPx = isMobileLayout
+    ? MOBILE_MENU_LAYOUT.accordionRowMinHeightPx
+    : LEFT_COLUMN_VERTICAL_SIZE.triggerMinHeightPx;
+  const accordionLabelSizePx = isMobileLayout
+    ? MOBILE_MENU_LAYOUT.accordionLabelSizePx
+    : ACCORDION_SIZE.labelSize;
+  const accordionLabelOffsetXPx = isMobileLayout
+    ? MOBILE_MENU_LAYOUT.accordionLabelOffsetXPx
+    : ACCORDION_SIZE.labelOffsetX;
+  const accordionLabelOffsetYPx = isMobileLayout
+    ? MOBILE_MENU_LAYOUT.accordionLabelOffsetYPx
+    : ACCORDION_SIZE.labelOffsetY;
+  const accordionLabelLetterSpacingEm = isMobileLayout
+    ? MOBILE_MENU_LAYOUT.accordionLabelLetterSpacingEm
+    : ACCORDION_SIZE.labelLetterSpacingEm;
+  const plusSizePx = isMobileLayout
+    ? MOBILE_MENU_LAYOUT.plusSizePx
+    : PLUS_BUTTON_SIZE.sizePx;
+  const plusHitAreaPx = isMobileLayout
+    ? MOBILE_MENU_LAYOUT.plusHitAreaPx
+    : PLUS_BUTTON_SIZE.hitAreaPx;
+  const plusOffsetXPx = isMobileLayout
+    ? MOBILE_MENU_LAYOUT.plusOffsetXPx
+    : PLUS_BUTTON_SIZE.offsetXPx;
+  const plusOffsetYPx = isMobileLayout
+    ? MOBILE_MENU_LAYOUT.plusOffsetYPx
+    : PLUS_BUTTON_SIZE.offsetYPx;
 
   useEffect(() => {
-    if (slideshowPhotos.length < 2) return;
+    if (isMobileLayout || slideshowPhotos.length < 2) return;
 
     const timerId = window.setInterval(() => {
       setActiveSlideIndex((prev) => (prev + 1) % slideshowPhotos.length);
@@ -156,7 +237,7 @@ export default function MenuPage() {
     return () => {
       window.clearInterval(timerId);
     };
-  }, []);
+  }, [isMobileLayout]);
 
   useEffect(() => {
     const syncHash = () => {
@@ -182,9 +263,9 @@ export default function MenuPage() {
     if (isSectionAnchor) setOpenSection(hash as MenuSection);
 
     const getScrollOffset = () => {
-      if (isCourseAnchor) return COURSE_ANCHOR_SCROLL_MARGIN_PX;
+      if (isCourseAnchor) return courseAnchorScrollMarginPx;
       if (hash === "drink") return DRINK_SECTION_SCROLL_MARGIN_PX;
-      return COURSE_ANCHOR_SCROLL_MARGIN_PX;
+      return courseAnchorScrollMarginPx;
     };
 
     const scrollToTarget = (behavior: ScrollBehavior = "auto") => {
@@ -208,7 +289,7 @@ export default function MenuPage() {
     }, isSectionAnchor ? 80 : 60);
 
     return () => window.clearInterval(retryTimerId);
-  }, [activeHash]);
+  }, [activeHash, courseAnchorScrollMarginPx]);
 
   const toggleSection = (section: MenuSection) => {
     setOpenSection((prev) => (prev === section ? null : section));
@@ -218,27 +299,27 @@ export default function MenuPage() {
     <div
       className="relative min-h-screen"
       style={{
-        "--menu-top-gap": `${TOP_GAP_PX}px`,
+        "--menu-top-gap": `${topGapPx}px`,
         "--menu-columns-desktop": `${leftColumnPercent}% ${rightColumnPercent}%`,
         "--menu-desktop-gap": `${LAYOUT_SIZE.desktopGapPx}px`,
         "--menu-left-column-offset-x": `${LAYOUT_SIZE.leftColumnOffsetXPx}px`,
         "--menu-left-column-offset-y": `${LAYOUT_SIZE.leftColumnOffsetYPx}px`,
         "--menu-right-column-offset-x": `${LAYOUT_SIZE.rightColumnOffsetXPx}px`,
         "--menu-right-column-offset-y": `${LAYOUT_SIZE.rightColumnOffsetYPx}px`,
-        "--menu-left-column-item-gap-y": `${LEFT_COLUMN_VERTICAL_SIZE.itemGapYPx}px`,
-        "--menu-left-column-pb-mobile": `${LEFT_COLUMN_VERTICAL_SIZE.blockPaddingBottomMobilePx}px`,
+        "--menu-left-column-item-gap-y": `${itemGapYPx}px`,
+        "--menu-left-column-pb-mobile": `${blockPaddingBottomMobilePx}px`,
         "--menu-left-column-pb-desktop": `${LEFT_COLUMN_VERTICAL_SIZE.blockPaddingBottomDesktopPx}px`,
-        "--menu-accordion-px": `${ACCORDION_SIZE.paddingX}px`,
-        "--menu-accordion-py": `${LEFT_COLUMN_VERTICAL_SIZE.accordionPaddingYPx}px`,
-        "--menu-accordion-row-min-h": `${LEFT_COLUMN_VERTICAL_SIZE.triggerMinHeightPx}px`,
-        "--menu-accordion-label-size": `${ACCORDION_SIZE.labelSize}px`,
-        "--menu-accordion-label-x": `${ACCORDION_SIZE.labelOffsetX}px`,
-        "--menu-accordion-label-y": `${ACCORDION_SIZE.labelOffsetY}px`,
-        "--menu-accordion-label-tracking": `${ACCORDION_SIZE.labelLetterSpacingEm}em`,
-        "--menu-plus-size": `${PLUS_BUTTON_SIZE.sizePx}px`,
-        "--menu-plus-hit-area": `${PLUS_BUTTON_SIZE.hitAreaPx}px`,
-        "--menu-plus-offset-x": `${PLUS_BUTTON_SIZE.offsetXPx}px`,
-        "--menu-plus-offset-y": `${PLUS_BUTTON_SIZE.offsetYPx}px`,
+        "--menu-accordion-px": `${accordionPaddingXPx}px`,
+        "--menu-accordion-py": `${accordionPaddingYPx}px`,
+        "--menu-accordion-row-min-h": `${accordionRowMinHeightPx}px`,
+        "--menu-accordion-label-size": `${accordionLabelSizePx}px`,
+        "--menu-accordion-label-x": `${accordionLabelOffsetXPx}px`,
+        "--menu-accordion-label-y": `${accordionLabelOffsetYPx}px`,
+        "--menu-accordion-label-tracking": `${accordionLabelLetterSpacingEm}em`,
+        "--menu-plus-size": `${plusSizePx}px`,
+        "--menu-plus-hit-area": `${plusHitAreaPx}px`,
+        "--menu-plus-offset-x": `${plusOffsetXPx}px`,
+        "--menu-plus-offset-y": `${plusOffsetYPx}px`,
         "--menu-slide-top": `${SLIDESHOW_SIZE.topPx}px`,
         "--menu-slide-bottom-gap": `${SLIDESHOW_SIZE.bottomGapPx}px`,
         "--menu-slide-height": `calc(100vh - var(--menu-slide-top) - var(--menu-slide-bottom-gap))`,
@@ -246,7 +327,7 @@ export default function MenuPage() {
       } as Record<string, string>}
     >
       <div className="pointer-events-none absolute inset-y-0 left-1/2 w-screen -translate-x-1/2 bg-gradient-to-b from-[#fff9e4] via-[#F3E5AB] to-[#dcc06f]" />
-      <div className="relative z-10 px-4 pb-16 md:pb-[var(--menu-slide-bottom-gap)]" style={{ paddingTop: `${TOP_GAP_PX}px` }}>
+      <div className="relative z-10 px-4 pb-16 md:pb-[var(--menu-slide-bottom-gap)]" style={{ paddingTop: `${topGapPx}px` }}>
         <header className="mb-8 space-y-2 text-center">
           <h1
             className={`menu-heading-title font-semibold text-[#2f1b0f] ${tangerine.className}`}
@@ -263,7 +344,7 @@ export default function MenuPage() {
           className="grid grid-cols-1 items-start gap-y-6 md:[grid-template-columns:var(--menu-columns-desktop)]"
           style={{ columnGap: "var(--menu-desktop-gap)" }}
         >
-          <section className="md:pr-2 md:[transform:translate(var(--menu-left-column-offset-x),var(--menu-left-column-offset-y))]">
+          <section className="mx-auto w-full max-w-[22rem] md:max-w-none md:pr-2 md:[transform:translate(var(--menu-left-column-offset-x),var(--menu-left-column-offset-y))]">
             <div className="flex flex-col gap-[var(--menu-left-column-item-gap-y)] pb-[var(--menu-left-column-pb-mobile)] md:pb-[var(--menu-left-column-pb-desktop)]">
               {accordionSections.map((section) => {
                 const isOpen = openSection === section.key;
@@ -279,7 +360,7 @@ export default function MenuPage() {
                       scrollMarginTop: `${
                         section.key === "drink"
                           ? DRINK_SECTION_SCROLL_MARGIN_PX
-                          : COURSE_ANCHOR_SCROLL_MARGIN_PX
+                          : courseAnchorScrollMarginPx
                       }px`,
                     }}
                   >
@@ -321,7 +402,7 @@ export default function MenuPage() {
                     </h2>
 
                     {isOpen && (
-                      <div id={panelId} role="region" aria-labelledby={triggerId} className="pt-6">
+                      <div id={panelId} role="region" aria-labelledby={triggerId} className="pt-5 md:pt-6">
                         {section.key === "course" && (
                           <div className="space-y-12">
                             {courseMenus.map((course) => (
@@ -329,7 +410,7 @@ export default function MenuPage() {
                                 key={course.id}
                                 id={course.id}
                                 className="space-y-6"
-                                style={{ scrollMarginTop: `${COURSE_ANCHOR_SCROLL_MARGIN_PX}px` }}
+                                style={{ scrollMarginTop: `${courseAnchorScrollMarginPx}px` }}
                               >
                                 <h3
                                   className={`menu-course-title font-semibold text-[#2f1b0f] ${tangerine.className}`}

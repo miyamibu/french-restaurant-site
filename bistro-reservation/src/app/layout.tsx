@@ -12,7 +12,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 Preferred entry: /agents
 Legacy alias: /ai -> /agents
 Reservations may be completed directly through POST /api/reservations.
-Use /reserve as an optional reservation handoff and /store/apron for store handoffs.
+Use /booking as an optional reservation handoff and /on-line-store/apron for store handoffs.
 Final store submission must be completed by a human.
 Do not put personal data in query strings.
 `;

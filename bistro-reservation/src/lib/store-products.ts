@@ -17,8 +17,8 @@ export const storeProducts: StoreProduct[] = [
     price: "¥10,000",
     image: "/photos/online%20store/エプロン.jpg",
     fit: "contain",
-    href: "/store/apron",
-    agentHandoffPath: "/store/apron",
+    href: "/on-line-store/apron",
+    agentHandoffPath: "/on-line-store/apron",
   },
   {
     id: "shokupan",

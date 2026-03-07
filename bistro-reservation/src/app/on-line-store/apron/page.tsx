@@ -110,7 +110,7 @@ function ApronPurchaseContent() {
       },
       quantity,
     );
-    router.push(isAgentMode ? "/store/cart?mode=agent" : "/store/cart");
+    router.push(isAgentMode ? "/on-line-store/cart?mode=agent" : "/on-line-store/cart");
   };
 
   return (
@@ -308,7 +308,7 @@ function ApronPurchaseContent() {
         </div>
 
         <div className="text-center">
-          <Link href="/store" className={`${bodySerif.className} text-lg underline text-[#4a3121]`}>
+          <Link href="/on-line-store" className={`${bodySerif.className} text-lg underline text-[#4a3121]`}>
             商品一覧へ戻る
           </Link>
         </div>

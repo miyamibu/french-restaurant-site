@@ -13,13 +13,6 @@ import {
   subMonths,
 } from "date-fns";
 import { ja } from "date-fns/locale";
-import LkButton from "@/components/button";
-import {
-  Select as LkSelect,
-  SelectMenu,
-  SelectOption,
-  SelectTrigger,
-} from "@/components/select";
 import { CONTACT_PHONE_DISPLAY, CONTACT_MESSAGE, CONTACT_TEL_LINK } from "@/lib/contact";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -248,12 +241,6 @@ export function ReserveForm({
     }
   }
 
-  const selectedCourseLabel = useMemo(
-    () =>
-      flatCourseOptions.find((item) => item.value === form.course)?.label ??
-      "コースを選択",
-    [form.course]
-  );
   const monthStart = startOfMonth(calendarMonth);
   const monthDays = getDaysInMonth(monthStart);
   const firstWeekday = getDay(monthStart);
@@ -316,9 +303,11 @@ export function ReserveForm({
         </div>
       ) : null}
 
-      <section className="p-4">
+      <section className="px-0 py-4 md:p-4">
         <div className="grid gap-6 md:grid-cols-[auto,minmax(0,1fr)] md:items-stretch">
-          <div className="-ml-[38px] -mt-[0.5cm] space-y-4 md:ml-0 md:mt-0">
+          <div
+            className="mx-auto mt-[-0.5cm] w-full max-w-[20.5rem] space-y-4 md:mx-0 md:mt-0 md:max-w-none"
+          >
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-semibold text-[#2f1b0f]">来店日</p>
               <div className="rounded-md border-0 bg-white px-3 py-2 text-sm text-[#2f1b0f]">
@@ -326,7 +315,7 @@ export function ReserveForm({
               </div>
             </div>
 
-            <div className="rounded-md border-0 bg-white p-3">
+            <div className="mx-auto max-w-[17.5rem] rounded-md border-0 bg-white p-3">
               <div className="mb-2 flex items-center justify-between">
                 <button
                   type="button"
@@ -521,17 +510,20 @@ export function ReserveForm({
             </div>
           </div>
 
-          <div className="-ml-[38px] flex h-full flex-col md:ml-0" style={{ rowGap: `${rightPanelSectionGap}px` }}>
+          <div
+            className="mx-auto flex h-full w-full max-w-[20.5rem] flex-col md:mx-0 md:max-w-none"
+            style={{ rowGap: `${rightPanelSectionGap}px` }}
+          >
             <div
-              className="whitespace-pre-line rounded-md border-0 bg-white px-3 py-2 text-[#6f5b46]"
+              className="whitespace-pre-line rounded-md border-0 bg-white px-3 py-2 text-center text-[#6f5b46] md:text-left"
               style={{ fontSize: `${infoInlineFontSize}px` }}
             >
-              <p className="whitespace-nowrap">{infoInlineLead}</p>
+              <p>{infoInlineLead}</p>
               <p>{infoInlineMessage}</p>
             </div>
 
             <div
-              className="grid sm:grid-cols-2"
+              className="grid grid-cols-2"
               style={{ columnGap: `${rightPanelPairGap}px`, rowGap: `${rightPanelPairGap}px` }}
             >
               <div className="grid" style={{ rowGap: `${fieldLabelGap}px` }}>
@@ -569,55 +561,25 @@ export function ReserveForm({
             </div>
 
             <div className="grid" style={{ rowGap: `${fieldLabelGap}px` }}>
-              <Label>コース</Label>
-              <LkSelect
-                name="course"
+              <Label htmlFor="course">コース</Label>
+              <select
+                id="course"
                 value={form.course}
-                options={flatCourseOptions}
                 onChange={(e) => updateField("course", e.target.value)}
+                className="h-10 w-full rounded-md border border-black bg-white px-3 text-sm text-[#2f1b0f] focus:outline-none focus:ring-2 focus:ring-black/20"
+                style={{ borderRadius: `${formFieldRadius}px` }}
+                required
               >
-                <SelectTrigger>
-                  <LkButton
-                    label={selectedCourseLabel}
-                    variant="fill"
-                    color="surface"
-                    endIcon="chevrons-up-down"
-                    aria-label="コースを選択"
-                    modifiers="h-10 w-full justify-between px-4 py-2 text-left text-[14px]"
-                    style={{
-                      backgroundColor: "#ffffff",
-                      color: "#1f2937",
-                      border: "1px solid #000000",
-                      borderRadius: `${formFieldRadius}px`,
-                    }}
-                  />
-                </SelectTrigger>
-                <SelectMenu
-                  cardProps={{
-                    variant: "fill",
-                    bgColor: "surface",
-                    scaleFactor: "body",
-                    className:
-                      "select-menu-solid min-w-[280px] max-h-[18rem] overflow-auto border border-black text-[#1f2937]",
-                    style: { borderRadius: `${formFieldRadius}px` },
-                  }}
-                >
-                  {courseOptions.map((group) => (
-                    <div key={group.group} className="px-2 py-1">
-                      <p className="px-1 pb-1 text-xs font-semibold tracking-wide text-gray-500">
-                        {group.group}
-                      </p>
-                      <div className="space-y-1">
-                        {group.items.map((item) => (
-                          <SelectOption key={item.value} value={item.value}>
-                            <span className="text-sm text-gray-800">{item.label}</span>
-                          </SelectOption>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </SelectMenu>
-              </LkSelect>
+                {courseOptions.map((group) => (
+                  <optgroup key={group.group} label={group.group}>
+                    {group.items.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
             </div>
 
             <div
@@ -663,19 +625,19 @@ export function ReserveForm({
         </div>
       </section>
 
-      <div className="-ml-[22px] space-y-2 md:ml-0">
+      <div className="mx-auto w-full max-w-[20.5rem] space-y-2 md:mx-0 md:max-w-none">
         <Label htmlFor="note">要望（任意）</Label>
         <Textarea
           id="note"
           value={form.note}
           onChange={(e) => updateField("note", e.target.value)}
-          className="w-[calc(100%+23px)] border-black focus:ring-black/20 focus:border-black md:w-full"
+          className="w-full border-black focus:ring-black/20 focus:border-black"
           placeholder="アレルギーや記念日のご希望など"
         />
       </div>
 
-      <div className="-ml-[38px] space-y-3 pr-[38px] pt-2 md:ml-0 md:pr-0">
-        <div className="ml-4 flex w-[calc(100%-16px)] flex-col items-start gap-y-0.5 text-[12px] leading-tight tracking-[-0.01em] text-[#4a3121] md:ml-0 md:w-full md:flex-row md:flex-wrap md:items-center md:justify-end md:gap-4 md:text-sm md:leading-normal md:tracking-normal">
+      <div className="mx-auto w-full max-w-[20.5rem] space-y-3 pt-2 md:mx-0 md:max-w-none">
+        <div className="flex w-full flex-col items-start gap-y-0.5 text-[12px] leading-tight tracking-[-0.01em] text-[#4a3121] md:flex-row md:flex-wrap md:items-center md:justify-end md:gap-4 md:text-sm md:leading-normal md:tracking-normal">
           <p className="min-w-0 whitespace-nowrap">{cancelInlineMessage}</p>
           <a
             className="text-left underline md:whitespace-nowrap"
@@ -684,7 +646,7 @@ export function ReserveForm({
             {cancelInlinePhone}
           </a>
         </div>
-        <div className="ml-4 flex w-[calc(100%+45px)] justify-end md:ml-0 md:w-full">
+        <div className="flex w-full justify-end">
           <button
             type="submit"
             className="relative inline-flex shrink-0 translate-y-[-0.5cm] items-center justify-center rounded-full border-0 bg-transparent p-0 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7a5a31]/35 disabled:cursor-not-allowed disabled:opacity-50 md:translate-y-[0.5cm]"

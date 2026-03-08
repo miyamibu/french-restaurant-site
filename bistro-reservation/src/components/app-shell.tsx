@@ -27,7 +27,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {hideTopNav ? null : (
         <>
         {showMobileHeaderGoldBand ? (
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-40 overflow-visible md:hidden">
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-[110] overflow-visible md:hidden">
             <div
               className="absolute inset-x-0 h-[132px]"
               style={{
@@ -37,7 +37,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             />
           </div>
         ) : null}
-        <header className="pointer-events-none fixed inset-x-0 top-0 z-50 h-[var(--header-h)]">
+        <header className="pointer-events-none fixed inset-x-0 top-0 z-[120] h-[var(--header-h)]">
           <div className="relative mx-auto flex h-full max-w-6xl items-start px-4 pt-[2px] md:items-center md:pt-0">
             <TopNav />
           </div>

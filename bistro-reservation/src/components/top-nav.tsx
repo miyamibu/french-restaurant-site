@@ -19,7 +19,6 @@ const logoFont = Playfair_Display({
 });
 export function TopNav() {
   const logoPos = { x: 0 }; // ロゴの左右微調整(px)
-  const cartIconPos = { x: -140 }; // カートアイコンの左右微調整(px)
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const showCartIcon =
@@ -31,14 +30,14 @@ export function TopNav() {
   }, [pathname]);
 
   return (
-    <div className="relative mx-auto w-[calc(100%-0.75rem)] max-w-[23rem] pointer-events-auto md:w-full md:max-w-none">
+    <div className="pointer-events-auto relative z-[130] mx-auto w-[calc(100%-0.75rem)] max-w-[23rem] md:w-full md:max-w-none">
       <div className="relative flex items-center justify-between rounded-full bg-white/80 px-4 py-2 shadow-sm backdrop-blur">
         <a
-          href="https://www.instagram.com/"
+          href="https://www.instagram.com/bistrocentquatre104?igsh=MXQydXRuMnI5YWllMA=="
           target="_blank"
           rel="noreferrer"
           aria-label="Instagramへ"
-          className="z-10 text-[#6b3b20] hover:text-[#8a4c29] transition"
+          className="z-20 flex h-10 w-10 items-center justify-center text-[#6b3b20] transition hover:text-[#8a4c29]"
         >
           <Instagram size={35} />
         </a>
@@ -46,7 +45,7 @@ export function TopNav() {
         <Link
           href="/"
           aria-label="ホームへ戻る"
-          className={`absolute inset-0 z-0 flex items-center justify-center text-center ${logoFont.className} cursor-pointer select-none`}
+          className={`absolute inset-0 z-10 flex items-center justify-center text-center ${logoFont.className} cursor-pointer select-none`}
           style={{ marginLeft: `${logoPos.x}px` }}
           onClick={() => setOpen(false)} // もしメニューが開いてたら閉じる
         >
@@ -56,21 +55,21 @@ export function TopNav() {
           </div>
         </Link>
 
-        <div className="z-10 flex items-center gap-3">
+        <div className="relative z-20 flex items-center gap-1.5 md:gap-3">
           {showCartIcon && (
             <Link
               href="/on-line-store/cart"
               aria-label="カート"
-              className="flex items-center justify-center text-[#6b3b20] transition hover:text-[#8a4c29]"
-              style={{ transform: `translateX(${cartIconPos.x}px)` }}
+              className="flex h-10 w-10 items-center justify-center text-[#6b3b20] transition hover:text-[#8a4c29]"
             >
               <ShoppingCart size={35} strokeWidth={1.9} />
             </Link>
           )}
           <button
+            type="button"
             aria-label="メニューを開く"
-            className="flex items-center justify-center text-[#6b3b20] hover:text-[#8a4c29] transition"
-            onClick={() => setOpen(true)}
+            className="flex h-10 w-10 items-center justify-center text-[#6b3b20] transition hover:text-[#8a4c29]"
+            onClick={() => setOpen((prev) => !prev)}
           >
             <Menu size={35} />
           </button>
@@ -78,13 +77,13 @@ export function TopNav() {
       </div>
 
       {open && (
-        <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 z-[220] bg-black/40 backdrop-blur-sm" onClick={() => setOpen(false)}>
           <div
-            className="absolute left-1/2 top-8 z-50 w-[90%] max-w-sm -translate-x-1/2 rounded-2xl bg-white p-5 shadow-xl"
+            className="absolute left-1/2 top-8 z-[221] w-[90%] max-w-sm -translate-x-1/2 rounded-2xl bg-white p-5 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-end">
-              <button aria-label="閉じる" onClick={() => setOpen(false)} className="text-[#6b3b20] hover:text-[#8a4c29]">
+              <button type="button" aria-label="閉じる" onClick={() => setOpen(false)} className="text-[#6b3b20] hover:text-[#8a4c29]">
                 <X size={20} />
               </button>
             </div>

@@ -126,7 +126,7 @@ const dishPhotos = [
   { src: "/photos/料理/１.jpg", alt: "料理 10" },];
 const dishPhotoCardWidthPx = 360; // 2列時と3列時の中間サイズ
 const dishPhotoGapPx = 24; // gap-6 と同じ間隔
-const mobileDishPhotoCardWidthPx = 94;
+const mobileDishPhotoCardWidthPx = 112;
 const mobileDishPhotoGapPx = 8;
 
 function ScrollReveal({

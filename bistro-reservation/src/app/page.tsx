@@ -391,7 +391,7 @@ export default function HomePage() {
     showDivider2: false, // 2本目（READ MORE-DISHES間）を一時表示するか
     showDivider3: false, // 3本目（DISHES-MENU間）を一時表示するか
     showDivider4: false, // 4本目（CONTACT上）を一時表示するか
-    divider1Y: -42,      // 1本目: ヒーロー直下の帯（下に+ / 上に-）
+    divider1Y: -74,      // 1本目: ヒーロー直下の帯（下に+ / 上に-）
     divider2Y: 130,      // 2本目: READ MORE と DISHES の間の帯
     divider3Y: 120,      // 3本目: DISHES と MENU の間の帯
     divider4Y: 180,      // 4本目: CONTACT 上の帯

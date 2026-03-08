@@ -279,14 +279,14 @@ export default function HomePage() {
     po: {
       w: 200,
       h: 360,
-      x: 250,
-      y: 250,
+      x: 103,
+      y: 248,
       pos: "50% 50%",
     },
     storyGraphic: {
       w: 350,
       h: 300,
-      x: -200,
+      x: -285,
       y: -120,
     },
     storySpacing: {
@@ -382,7 +382,7 @@ export default function HomePage() {
   const goldDividerPos = {
     thicknessBase: 44, // 帯の基準太さ(px)
     thicknessAll: 0,   // 全帯の太さを一括微調整(+/-)
-    heroBottomThickness: 0, // ヒーロー直下の帯の太さ微調整
+    heroBottomThickness: isMobile ? 0 : 6, // ヒーロー直下の帯の太さ微調整
     heroBottomCenterOpacity: 1, // ヒーロー直下の帯の中心濃度(0-1)
     heroBottomColorRgb: "184,136,56", // ヒーロー直下の帯色（濃いゴールド）
     readMoreThickness: 0,   // READ MORE下の帯の太さ微調整
@@ -391,7 +391,7 @@ export default function HomePage() {
     showDivider2: false, // 2本目（READ MORE-DISHES間）を一時表示するか
     showDivider3: false, // 3本目（DISHES-MENU間）を一時表示するか
     showDivider4: false, // 4本目（CONTACT上）を一時表示するか
-    divider1Y: -74,      // 1本目: ヒーロー直下の帯（下に+ / 上に-）
+    divider1Y: isMobile ? -42 : -80,      // 1本目: ヒーロー直下の帯（下に+ / 上に-）
     divider2Y: 130,      // 2本目: READ MORE と DISHES の間の帯
     divider3Y: 120,      // 3本目: DISHES と MENU の間の帯
     divider4Y: 180,      // 4本目: CONTACT 上の帯
@@ -1038,12 +1038,12 @@ return (
           </div>
           </div>
           <div
-            className="order-2 mx-auto max-w-[280px] overflow-hidden rounded-2xl border border-[#cfa96d]/40 shadow-sm md:max-w-none"
+            className="order-2 mx-auto w-full max-w-[280px] overflow-hidden rounded-2xl border border-[#cfa96d]/40 shadow-sm md:w-[380px] md:max-w-[380px]"
             style={{ transform: `translate(${contactPos.map.x}px, ${contactPos.map.y}px)` }}
           >
             <iframe
               title="Bistro Cent Quatre map"
-              className="h-56 w-full md:h-[340px]"
+              className="h-56 w-full md:h-[380px]"
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
               src="https://www.google.com/maps?q=%E3%80%92350-0824%20%E5%9F%BC%E7%8E%89%E7%9C%8C%E5%B7%9D%E8%B6%8A%E5%B8%82%E7%9F%B3%E5%8E%9F%E7%94%BA%EF%BC%91%E4%B8%81%E7%9B%AE%EF%BC%94%EF%BC%97%E2%88%92%EF%BC%97&output=embed"

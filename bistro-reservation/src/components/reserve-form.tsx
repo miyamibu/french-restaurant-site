@@ -278,7 +278,8 @@ export function ReserveForm({
   const reserveButtonKnobHeight = 52;
   const reserveButtonBorderWidth = 2;
   const reserveButtonOffsetX = 0;
-  const reserveButtonOffsetY = "-0.5cm";
+  const reserveButtonOffsetYMobile = "-0.5cm";
+  const reserveButtonOffsetYDesktop = "0.5cm";
   const rightPanelSectionGap = 50;
   const rightPanelPairGap = 12;
   const fieldLabelGap = 6;
@@ -694,8 +695,9 @@ export function ReserveForm({
             style={{
               width: `${reserveButtonKnobWidth}px`,
               height: `${reserveButtonKnobHeight}px`,
-              transform: `translate(${toCssLength(reserveButtonOffsetX)}, ${toCssLength(reserveButtonOffsetY)})`,
+              transform: `translate(${toCssLength(reserveButtonOffsetX)}, ${toCssLength(reserveButtonOffsetYMobile)})`,
             }}
+            data-reserve-button="true"
             disabled={
               submitting ||
               availability.reason === "SAME_DAY_BLOCKED" ||
@@ -716,6 +718,13 @@ export function ReserveForm({
               </span>
             </span>
           </button>
+          <style jsx>{`
+            @media (min-width: 768px) {
+              button[data-reserve-button="true"] {
+                transform: translate(${toCssLength(reserveButtonOffsetX)}, ${toCssLength(reserveButtonOffsetYDesktop)}) !important;
+              }
+            }
+          `}</style>
         </div>
       </div>
 

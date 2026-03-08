@@ -18,7 +18,7 @@ const logoFont = Playfair_Display({
   weight: ["400", "600", "700"],
 });
 export function TopNav() {
-  const logoPos = { x:0 }; // ロゴの左右微調整(px)
+  const logoPos = { x: 0 }; // ロゴの左右微調整(px)
   const cartIconPos = { x: -140 }; // カートアイコンの左右微調整(px)
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
@@ -46,12 +46,14 @@ export function TopNav() {
         <Link
           href="/"
           aria-label="ホームへ戻る"
-          className={`absolute left-1/2 top-1/2 z-0 text-center ${logoFont.className} cursor-pointer select-none`}
-          style={{ transform: `translate(-50%, -50%) translateX(${logoPos.x}px)` }}
+          className={`absolute inset-0 z-0 flex items-center justify-center text-center ${logoFont.className} cursor-pointer select-none`}
+          style={{ marginLeft: `${logoPos.x}px` }}
           onClick={() => setOpen(false)} // もしメニューが開いてたら閉じる
         >
-          <p className="text-[10px] uppercase tracking-[0.14em] text-[#b68c5a]">Bistro １０４</p>
-          <p className="text-lg font-semibold text-[#2f1b0f]">Cent Quatre</p>
+          <div className="flex flex-col items-center leading-tight md:translate-y-[2px]">
+            <p className="text-[10px] uppercase tracking-[0.14em] text-[#b68c5a]">Bistro １０４</p>
+            <p className="text-lg font-semibold text-[#2f1b0f]">Cent Quatre</p>
+          </div>
         </Link>
 
         <div className="z-10 flex items-center gap-3">

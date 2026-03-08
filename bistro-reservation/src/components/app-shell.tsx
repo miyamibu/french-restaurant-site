@@ -23,7 +23,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname.startsWith("/on-line-store/");
 
   return (
-    <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col bg-white px-4 py-0 [--header-h:53px] md:[--header-h:92px]">
+    <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col bg-white px-4 py-0 [--header-h:58px] md:[--header-h:92px]">
       {hideTopNav ? null : (
         <>
         {showMobileHeaderGoldBand ? (

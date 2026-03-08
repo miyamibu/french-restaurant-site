@@ -277,9 +277,6 @@ export function ReserveForm({
   const reserveButtonKnobWidth = 92;
   const reserveButtonKnobHeight = 52;
   const reserveButtonBorderWidth = 2;
-  const reserveButtonOffsetX = 0;
-  const reserveButtonOffsetYMobile = "-0.5cm";
-  const reserveButtonOffsetYDesktop = "0.5cm";
   const rightPanelSectionGap = 50;
   const rightPanelPairGap = 12;
   const fieldLabelGap = 6;
@@ -288,7 +285,6 @@ export function ReserveForm({
   const infoInlineMessage = "当日も席が空いている場合がありますのでご連絡いただけたらと思います。";
   const cancelInlineMessage = "キャンセルはお電話にてお願いいたします。";
   const cancelInlinePhone = `電話番号：${CONTACT_PHONE_DISPLAY}`;
-  const toCssLength = (value: number | string) => (typeof value === "number" ? `${value}px` : value);
   const calendarDayMarkerHeight =
     Math.max(
       calendarDayMarkerNormalFontSize,
@@ -691,13 +687,11 @@ export function ReserveForm({
         <div className="ml-4 flex w-[calc(100%+45px)] justify-end md:ml-0 md:w-full">
           <button
             type="submit"
-            className="relative inline-flex shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7a5a31]/35 disabled:cursor-not-allowed disabled:opacity-50"
+            className="relative inline-flex shrink-0 translate-y-[-0.5cm] items-center justify-center rounded-full border-0 bg-transparent p-0 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7a5a31]/35 disabled:cursor-not-allowed disabled:opacity-50 md:translate-y-[0.5cm]"
             style={{
               width: `${reserveButtonKnobWidth}px`,
               height: `${reserveButtonKnobHeight}px`,
-              transform: `translate(${toCssLength(reserveButtonOffsetX)}, ${toCssLength(reserveButtonOffsetYMobile)})`,
             }}
-            data-reserve-button="true"
             disabled={
               submitting ||
               availability.reason === "SAME_DAY_BLOCKED" ||
@@ -718,13 +712,6 @@ export function ReserveForm({
               </span>
             </span>
           </button>
-          <style jsx>{`
-            @media (min-width: 768px) {
-              button[data-reserve-button="true"] {
-                transform: translate(${toCssLength(reserveButtonOffsetX)}, ${toCssLength(reserveButtonOffsetYDesktop)}) !important;
-              }
-            }
-          `}</style>
         </div>
       </div>
 

@@ -327,7 +327,7 @@ export default function HomePage() {
     },
     contactPos: {
       group: { x: 0, y: 300 },
-      map: { x: 52, y: 300 },
+      map: { x: 0, y: 300 },
     },
     contactSpacing: {
       extraBottom: 76,
@@ -1029,14 +1029,14 @@ return (
 	          }px`,
 	        }}
 	      >
-        <div className="mx-auto grid w-full max-w-[900px] items-start gap-6 md:gap-0 md:grid-cols-[0.9fr_1fr]">
+        <div className="mx-auto grid w-full max-w-[900px] items-start gap-6 md:max-w-[1180px] md:grid-cols-[550px_550px] md:justify-center md:gap-16">
           <div
-            className="order-1 md:flex md:h-[340px] md:items-center"
+            className="order-1 md:flex md:h-[340px] md:items-center md:justify-end"
             style={{
               transform: `translate(${contactPos.group.x}px, ${contactPos.group.y}px)`,
             }}
           >
-          <div className="px-0 text-[#2f1b0f] md:px-0">
+          <div className="px-0 text-[#2f1b0f] md:w-full md:max-w-[420px] md:px-0">
             <div className="flex flex-col items-start gap-5 md:h-[190px] md:justify-between md:gap-0">
               <h2 className="ml-[19px] text-[24px] font-semibold md:ml-0 md:text-3xl">アクセス / お問い合わせ</h2>
               <div className="space-y-1 pl-[38px] text-[14px] font-normal text-black md:pl-0 md:text-lg">

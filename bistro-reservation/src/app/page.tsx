@@ -59,6 +59,15 @@ function splitCourseTitle(raw: string) {
   return { main, count, price };
 }
 
+function renderMultilineText(text: string) {
+  return text.split("\n").map((line, index) => (
+    <span key={`${line}-${index}`}>
+      {index > 0 ? <br /> : null}
+      {line}
+    </span>
+  ));
+}
+
 function splitIntoAlternatingColumns<T>(items: T[], pattern: number[]) {
   const columns: T[][] = [];
   let start = 0;
@@ -892,7 +901,7 @@ return (
               {price && <span className={menuCardText.meta}>{price}</span>}
             </div>
 
-            <p className={`${menuCardText.desc} whitespace-pre-line`}>{item.description}</p>
+            <p className={menuCardText.desc}>{renderMultilineText(item.description)}</p>
           </div>
         </Link>
       </div>
@@ -938,7 +947,7 @@ return (
               </div>
             )}
 
-            <p className={`${menuCardText.desc} whitespace-pre-line`}>{DRINK_MENU.description}</p>
+            <p className={menuCardText.desc}>{renderMultilineText(DRINK_MENU.description)}</p>
           </div>
         </Link>
       </ScrollReveal>

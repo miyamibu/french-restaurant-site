@@ -24,15 +24,15 @@ type MenuGroup = {
 const menuCardText = {
   subtitleWrap: "flex flex-wrap items-baseline justify-center gap-x-3 gap-y-1 md:flex-nowrap",
   subtitleJa:
-    "text-[20px] md:text-[20px] uppercase tracking-[0.30em] text-[#b68c5a]",
+    "text-[18px] md:text-[20px] uppercase tracking-[0.30em] text-[#b68c5a]",
   subtitleEn:
-    "text-[16px] md:text-[40px] text-[#b68c5a] leading-none",
+    "text-[18px] md:text-[40px] text-[#b68c5a] leading-none",
   title:
     "text-[15px] md:text-[20px] font-semibold text-[#2f1b0f] leading-[1.15] tracking-[0.06em]",
   meta:
     "text-[10px] md:text-[20px] text-[#2f1b0f]/80 tracking-[0.12em]",
   desc:
-    "text-[11px] md:text-[20px] text-[#4a3121] leading-[1.75]",
+    "text-[12px] md:text-[20px] text-[#4a3121] leading-[1.75]",
 };
 
 function splitJaEnSubtitle(s: string) {
@@ -93,7 +93,7 @@ const MENU = {
       {
         title: "実食！ ５品 8,500円",
         subtitle: "ジョワ Joie course",
-        description: "アミューズ、前菜、メイン×２、デザート、フリアンディーズ、コーヒーまたは紅茶",
+        description: "アミューズ、前菜、メイン×２、デザート、フリアンディーズ、\nコーヒーまたは紅茶",
         anchor: "joie",
       },
       {
@@ -110,7 +110,7 @@ const DRINK_MENU = {
   title: "",
   subtitle: "ドリンク Alcohol",
   description:
-    "グラスワイン、ボトル、カクテル、ノンアルコールまで幅広くご用意しています。",
+    "グラスワイン、ボトル、カクテル、ノンアルコールまで\n幅広くご用意しています。",
 };
 
 const dishPhotos = [
@@ -892,7 +892,7 @@ return (
               {price && <span className={menuCardText.meta}>{price}</span>}
             </div>
 
-            <p className={menuCardText.desc}>{item.description}</p>
+            <p className={`${menuCardText.desc} whitespace-pre-line`}>{item.description}</p>
           </div>
         </Link>
       </div>
@@ -938,7 +938,7 @@ return (
               </div>
             )}
 
-            <p className={menuCardText.desc}>{DRINK_MENU.description}</p>
+            <p className={`${menuCardText.desc} whitespace-pre-line`}>{DRINK_MENU.description}</p>
           </div>
         </Link>
       </ScrollReveal>

@@ -19,7 +19,8 @@ const headingFont = Tangerine({
 const menuHeadingSize = { base: 32, md: 60 };
 
 export default async function PhotosPage() {
-  const photosTopPadding = "124px";
+  const photosTopPaddingMobile = "86px";
+  const photosTopPaddingDesktop = "124px";
   const canQueryDatabase = /^(postgres|postgresql):\/\//.test(process.env.DATABASE_URL ?? "");
   const photos = canQueryDatabase
     ? await prisma.photo
@@ -35,8 +36,11 @@ export default async function PhotosPage() {
 
   return (
     <div
-      className="space-y-8 pt-[var(--photos-top-padding)]"
-      style={{ "--photos-top-padding": photosTopPadding } as Record<string, string>}
+      className="space-y-8 pt-[var(--photos-top-padding-mobile)] md:pt-[var(--photos-top-padding-desktop)]"
+      style={{
+        "--photos-top-padding-mobile": photosTopPaddingMobile,
+        "--photos-top-padding-desktop": photosTopPaddingDesktop,
+      } as Record<string, string>}
     >
       <header className="text-center">
         <h1

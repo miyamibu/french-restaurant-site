@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Tangerine } from "next/font/google";
@@ -299,6 +300,7 @@ export default function MenuPage() {
     <div
       className="relative min-h-screen"
       style={{
+        marginTop: isMobileLayout ? "calc(var(--header-h) * -1)" : "0px",
         "--menu-top-gap": `${topGapPx}px`,
         "--menu-columns-desktop": `${leftColumnPercent}% ${rightColumnPercent}%`,
         "--menu-desktop-gap": `${LAYOUT_SIZE.desktopGapPx}px`,
@@ -324,7 +326,7 @@ export default function MenuPage() {
         "--menu-slide-bottom-gap": `${SLIDESHOW_SIZE.bottomGapPx}px`,
         "--menu-slide-height": `calc(100vh - var(--menu-slide-top) - var(--menu-slide-bottom-gap))`,
         "--menu-slide-radius": `${SLIDESHOW_SIZE.radiusPx}px`,
-      } as Record<string, string>}
+      } as CSSProperties}
     >
       <div className="pointer-events-none absolute inset-y-0 left-1/2 w-screen -translate-x-1/2 bg-gradient-to-b from-[#fff9e4] via-[#F3E5AB] to-[#dcc06f]" />
       <div className="relative z-10 px-4 pb-16 md:pb-[var(--menu-slide-bottom-gap)]" style={{ paddingTop: `${topGapPx}px` }}>

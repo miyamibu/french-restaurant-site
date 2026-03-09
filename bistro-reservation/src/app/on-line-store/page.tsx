@@ -21,7 +21,7 @@ const menuHeadingSize = { base: 32, md: 60 };
 export default function StorePage() {
   return (
     <section
-      className="relative w-screen bg-gradient-to-b from-[#fff9e4] via-[#F3E5AB] to-[#dcc06f] px-4"
+      className="relative -mt-[var(--header-h)] w-screen bg-gradient-to-b from-[#fff9e4] via-[#F3E5AB] to-[#dcc06f] px-4 md:mt-0"
       style={{
         marginLeft: "calc(50% - 50vw)",
         marginRight: "calc(50% - 50vw)",

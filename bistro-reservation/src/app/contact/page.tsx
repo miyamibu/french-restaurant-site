@@ -2,7 +2,7 @@ import { ContactForm } from "@/components/contact-form";
 
 export default function ContactPage() {
   return (
-    <section className="px-0 pb-20 pt-[88px] md:pb-24 md:pt-[112px]">
+    <section className="px-0 pb-20 pt-[72px] md:pb-24 md:pt-[112px]">
       <div className="mx-auto max-w-3xl space-y-8">
         <div className="space-y-3 text-[#2f1b0f]">
           <p className="text-xs uppercase tracking-[0.3em] text-[#b68c5a]">Contact</p>

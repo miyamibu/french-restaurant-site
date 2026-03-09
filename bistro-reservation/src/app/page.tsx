@@ -1059,7 +1059,7 @@ return (
           </div>
           </div>
           <div
-            className="order-2 mx-auto w-full max-w-[280px] overflow-hidden rounded-2xl border border-[#cfa96d]/40 shadow-sm md:w-[380px] md:max-w-[380px]"
+            className="order-2 mx-auto w-full max-w-[280px] overflow-hidden rounded-2xl border border-[#cfa96d]/40 shadow-sm md:w-[426px] md:max-w-[426px]"
             style={{ transform: `translate(${contactPos.map.x}px, ${contactPos.map.y}px)` }}
           >
             <iframe

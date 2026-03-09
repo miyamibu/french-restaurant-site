@@ -3,7 +3,7 @@ import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 
 export const metadata: Metadata = {
-  title: "Bistro Joa | 予約システム",
+  title: "ビストロ　サンキャトル　１０４",
   description: "フレンチレストランの予約・管理システム",
 };
 

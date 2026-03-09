@@ -7,6 +7,13 @@ interface ReservationEmailPayload {
   adminUrl?: string;
 }
 
+interface ContactEmailPayload {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}
+
 // 送信元アドレスはプロバイダで認証済みのドメインを使うこと
 const defaultFrom = env.EMAIL_FROM ?? env.STORE_NOTIFY_EMAIL ?? "no-reply@example.com";
 
@@ -67,6 +74,81 @@ export async function sendReservationEmail({ reservation, adminUrl }: Reservatio
   } catch (error) {
     console.error("Email send failed", { provider, error });
     return { skipped: true, reason: "SEND_FAILED" as const };
+  }
+}
+
+export async function sendContactEmail({ name, email, subject, message }: ContactEmailPayload) {
+  const provider = env.EMAIL_PROVIDER;
+  const apiKey =
+    provider === "resend"
+      ? env.RESEND_API_KEY ?? env.EMAIL_API_KEY
+      : env.EMAIL_API_KEY;
+  const to = env.ADMIN_EMAIL ?? env.STORE_NOTIFY_EMAIL;
+
+  if (!provider || !apiKey || !to) {
+    console.info("Contact email accepted without delivery: provider/apiKey/to missing", {
+      provider: !!provider,
+      apiKey: !!apiKey,
+      to: !!to,
+    });
+    return {
+      sent: false as const,
+      accepted: true as const,
+      reason: "MISSING_ENV" as const,
+    };
+  }
+
+  const text = [
+    "お問い合わせを受け付けました。",
+    "",
+    `名前: ${name}`,
+    `メールアドレス: ${email}`,
+    `件名: ${subject}`,
+    "",
+    "お問い合わせ内容:",
+    message,
+  ].join("\n");
+
+  try {
+    if (provider === "resend") {
+      const { Resend } = await import("resend");
+      const resend = new Resend(apiKey);
+      await resend.emails.send({
+        from: defaultFrom,
+        to,
+        subject: `【お問い合わせ】${subject}`,
+        text,
+        replyTo: email,
+      });
+      return { sent: true as const, accepted: true as const, provider };
+    }
+
+    if (provider === "sendgrid") {
+      const sgMail = (await import("@sendgrid/mail")).default;
+      sgMail.setApiKey(apiKey);
+      await sgMail.send({
+        to,
+        from: defaultFrom,
+        subject: `【お問い合わせ】${subject}`,
+        text,
+        replyTo: email,
+      });
+      return { sent: true as const, accepted: true as const, provider };
+    }
+
+    console.warn(`Unknown EMAIL_PROVIDER: ${provider}`);
+    return {
+      sent: false as const,
+      accepted: true as const,
+      reason: "UNKNOWN_PROVIDER" as const,
+    };
+  } catch (error) {
+    console.error("Contact email send failed", { provider, error });
+    return {
+      sent: false as const,
+      accepted: false as const,
+      reason: "SEND_FAILED" as const,
+    };
   }
 }
 

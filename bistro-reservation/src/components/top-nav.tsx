@@ -11,6 +11,7 @@ const links = [
   { href: "/menu", label: "メニュー" },
   { href: "/picture", label: "写真" },
   { href: "/access", label: "アクセス" },
+  { href: "/contact", label: "お問い合わせ" },
   { href: "/on-line-store", label: "オンラインストア" },
 ] as const;
 const logoFont = Playfair_Display({

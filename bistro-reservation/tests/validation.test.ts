@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createOrderSchema, createReservationSchema } from "@/lib/validation";
+import { createContactSchema, createOrderSchema, createReservationSchema } from "@/lib/validation";
 
 describe("Validation schemas", () => {
   it("accepts valid reservation payload", () => {
@@ -59,6 +59,26 @@ describe("Validation schemas", () => {
       total: 2000,
     });
     expect(parsed.success).toBe(true);
+  });
+
+  it("accepts valid contact payload", () => {
+    const parsed = createContactSchema.safeParse({
+      name: "山田 太郎",
+      email: "test@example.com",
+      subject: "営業について",
+      message: "ランチ営業の開始時間を確認したいです。",
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("rejects invalid contact email", () => {
+    const parsed = createContactSchema.safeParse({
+      name: "山田 太郎",
+      email: "not-an-email",
+      subject: "営業について",
+      message: "ランチ営業の開始時間を確認したいです。",
+    });
+    expect(parsed.success).toBe(false);
   });
 });
 

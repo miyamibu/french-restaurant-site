@@ -17,6 +17,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname.startsWith("/menu/") ||
     pathname === "/picture" ||
     pathname.startsWith("/picture/") ||
+    pathname === "/contact" ||
+    pathname.startsWith("/contact/") ||
     pathname === "/access" ||
     pathname.startsWith("/access/") ||
     pathname === "/on-line-store" ||

@@ -1048,12 +1048,12 @@ return (
                 <a className="whitespace-nowrap underline text-black" href={CONTACT_TEL_LINK}>
                   {CONTACT_PHONE_DISPLAY}
                 </a>
-                <a
-                  href={CONTACT_TEL_LINK}
+                <Link
+                  href="/contact"
                   className="inline-flex h-9 items-center justify-center rounded-full border border-[#c7a357] bg-white px-4 text-[11px] font-medium tracking-[0.14em] text-[#2f1b0f] shadow-[0_1px_0_rgba(0,0,0,0.06)] transition hover:bg-[#f8f2e6] active:brightness-[0.98] md:h-10 md:px-6 md:text-[12px] md:tracking-[0.18em]"
                 >
                   お問い合わせ
-                </a>
+                </Link>
               </div>
             </div>
           </div>

@@ -30,7 +30,7 @@ export default function StorePage() {
       }}
     >
       <div className="mx-auto max-w-[76rem]">
-        <header className="text-center">
+        <header className="-mt-[30px] text-center md:mt-0">
           <h1
             className={`menu-heading-title font-semibold text-[#2f1b0f] ${headingFont.className}`}
             style={

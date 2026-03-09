@@ -21,7 +21,7 @@ function getFirstParam(value: string | string[] | undefined) {
 export default async function ReservePage({ searchParams }: { searchParams?: SearchParams }) {
   const resolvedSearchParams = (await searchParams) ?? {};
   const defaultDate = formatJst(addDays(todayJst(), 1));
-  const reservePageSpacing = { topMobile: 128, topDesktop: 150 }; // 上余白の微調整(px)
+  const reservePageSpacing = { topMobile: 113, topDesktop: 150 }; // 上余白の微調整(px)
   const isAgentMode = getFirstParam(resolvedSearchParams.mode) === "agent";
 
   return (
@@ -32,7 +32,7 @@ export default async function ReservePage({ searchParams }: { searchParams?: Sea
         "--reserve-top-desktop": `${reservePageSpacing.topDesktop}px`,
       } as Record<string, string>}
     >
-      <header className="-mt-[76px] text-center md:mt-0">
+      <header className="-mt-[68px] text-center md:mt-0">
         <h1
           className={`menu-heading-title font-semibold text-[#2f1b0f] ${tangerine.className}`}
           style={

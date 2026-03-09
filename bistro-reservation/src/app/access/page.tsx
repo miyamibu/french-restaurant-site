@@ -12,7 +12,7 @@ export default function InfoPage() {
         "--info-bottom-padding": infoSpacing.bottom,
       } as Record<string, string>}
     >
-      <h1 className="text-3xl font-semibold">店舗情報</h1>
+      <h1 className="-mt-[26px] text-3xl font-semibold md:mt-0">店舗情報</h1>
       <div className="card p-6 space-y-2 text-[14px] leading-6 text-gray-800 md:text-base">
         <div className="space-y-1">
           <h2 className="text-xl font-semibold">営業時間</h2>

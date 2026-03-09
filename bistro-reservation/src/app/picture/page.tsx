@@ -19,7 +19,7 @@ const headingFont = Tangerine({
 const menuHeadingSize = { base: 32, md: 60 };
 
 export default async function PhotosPage() {
-  const photosTopPaddingMobile = "108px";
+  const photosTopPaddingMobile = "70px";
   const photosTopPaddingDesktop = "124px";
   const canQueryDatabase = /^(postgres|postgresql):\/\//.test(process.env.DATABASE_URL ?? "");
   const photos = canQueryDatabase

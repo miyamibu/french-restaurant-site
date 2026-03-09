@@ -1,7 +1,7 @@
 import { CONTACT_PHONE_DISPLAY, CONTACT_TEL_LINK } from "@/lib/contact";
 
 export default function InfoPage() {
-  const infoSpacing = { topMobile: "114px", topDesktop: "90px", bottom: "80px" };
+  const infoSpacing = { topMobile: "76px", topDesktop: "90px", bottom: "80px" };
 
   return (
     <div

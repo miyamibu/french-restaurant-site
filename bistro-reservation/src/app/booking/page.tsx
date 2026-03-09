@@ -21,7 +21,7 @@ function getFirstParam(value: string | string[] | undefined) {
 export default async function ReservePage({ searchParams }: { searchParams?: SearchParams }) {
   const resolvedSearchParams = (await searchParams) ?? {};
   const defaultDate = formatJst(addDays(todayJst(), 1));
-  const reservePageSpacing = { topMobile: 166, topDesktop: 150 }; // 上余白の微調整(px)
+  const reservePageSpacing = { topMobile: 128, topDesktop: 150 }; // 上余白の微調整(px)
   const isAgentMode = getFirstParam(resolvedSearchParams.mode) === "agent";
 
   return (

@@ -21,6 +21,8 @@ type MenuGroup = {
   slides: MenuSlide[];
 };
 
+const MOBILE_ONLY_BREAK_TOKEN = "[[mobile-break]]";
+
 const menuCardText = {
   subtitleWrap: "flex flex-wrap items-baseline justify-center gap-x-3 gap-y-1 md:flex-nowrap",
   subtitleJa:
@@ -60,12 +62,21 @@ function splitCourseTitle(raw: string) {
 }
 
 function renderMultilineText(text: string) {
-  return text.split("\n").map((line, index) => (
-    <span key={`${line}-${index}`}>
-      {index > 0 ? <br /> : null}
-      {line}
-    </span>
-  ));
+  return text.split("\n").map((line, index) => {
+    const segments = line.split(MOBILE_ONLY_BREAK_TOKEN);
+
+    return (
+      <span key={`${line}-${index}`}>
+        {index > 0 ? <br /> : null}
+        {segments.map((segment, segmentIndex) => (
+          <span key={`${segment}-${segmentIndex}`}>
+            {segmentIndex > 0 ? <br className="md:hidden" /> : null}
+            {segment}
+          </span>
+        ))}
+      </span>
+    );
+  });
 }
 
 function splitIntoAlternatingColumns<T>(items: T[], pattern: number[]) {
@@ -90,7 +101,7 @@ const MENU = {
       {
         title: "北京じゃないよ 4品 3,800円",
         subtitle: " プティラ Petite La course",
-        description: "Amuse-bouches（2種）、Hors-d’œuvre ／ Entrée、Poisson／Viande、Café",
+        description: `Amuse-bouches（2種）、Hors-d’œuvre ／ Entrée、${MOBILE_ONLY_BREAK_TOKEN}Poisson／Viande、Café`,
         anchor: "petite",
       },
     ],

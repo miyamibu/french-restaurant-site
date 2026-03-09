@@ -21,14 +21,15 @@ function getFirstParam(value: string | string[] | undefined) {
 export default async function ReservePage({ searchParams }: { searchParams?: SearchParams }) {
   const resolvedSearchParams = (await searchParams) ?? {};
   const defaultDate = formatJst(addDays(todayJst(), 1));
-  const reservePageSpacing = { top: 150 }; // 上余白の微調整(px)
+  const reservePageSpacing = { topMobile: 166, topDesktop: 150 }; // 上余白の微調整(px)
   const isAgentMode = getFirstParam(resolvedSearchParams.mode) === "agent";
 
   return (
     <div
-      className="space-y-6 pb-1 md:pb-20"
+      className="space-y-6 pb-1 pt-[var(--reserve-top-mobile)] md:pb-20 md:pt-[var(--reserve-top-desktop)]"
       style={{
-        paddingTop: `${reservePageSpacing.top}px`,
+        "--reserve-top-mobile": `${reservePageSpacing.topMobile}px`,
+        "--reserve-top-desktop": `${reservePageSpacing.topDesktop}px`,
       }}
     >
       <header className="-mt-[76px] text-center md:mt-0">

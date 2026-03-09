@@ -543,15 +543,6 @@ return (
     }}
   >
     <div className="relative w-full max-w-5xl">
-      <button
-        type="button"
-        onClick={() => setLightbox(null)}
-        className="absolute -top-10 right-0 rounded bg-white/90 px-3 py-1 text-sm text-[#2f1b0f] shadow
-                   hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 cursor-pointer"
-      >
-        閉じる（ESC）
-      </button>
-
       {/* 写真の上だけフォークナイフ */}
       <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl bg-black shadow-2xl cursor-utensils">
         <Image

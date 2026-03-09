@@ -1,13 +1,14 @@
 import { CONTACT_PHONE_DISPLAY, CONTACT_TEL_LINK } from "@/lib/contact";
 
 export default function InfoPage() {
-  const infoSpacing = { top: "90px", bottom: "80px" };
+  const infoSpacing = { topMobile: "114px", topDesktop: "90px", bottom: "80px" };
 
   return (
     <div
-      className="space-y-4 pt-[var(--info-top-padding)] pb-[var(--info-bottom-padding)]"
+      className="space-y-4 pt-[var(--info-top-padding-mobile)] pb-[var(--info-bottom-padding)] md:pt-[var(--info-top-padding-desktop)]"
       style={{
-        "--info-top-padding": infoSpacing.top,
+        "--info-top-padding-mobile": infoSpacing.topMobile,
+        "--info-top-padding-desktop": infoSpacing.topDesktop,
         "--info-bottom-padding": infoSpacing.bottom,
       } as Record<string, string>}
     >

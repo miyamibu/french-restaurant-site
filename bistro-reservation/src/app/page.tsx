@@ -88,9 +88,9 @@ const MENU = {
     label: "ランチ",
     slides: [
       {
-        title: "北京じゃないよ 4品 3,500円",
+        title: "北京じゃないよ 4品 3,800円",
         subtitle: " プティラ Petite La course",
-        description: "前菜、メイン 、フリアンディーズ、コーヒーまたは紅茶",
+        description: "Amuse-bouches（2種）、Hors-d’œuvre ／ Entrée、Poisson／Viande、Café",
         anchor: "petite",
       },
     ],
@@ -100,15 +100,15 @@ const MENU = {
     label: "ディナー",
     slides: [
       {
-        title: "実食！ ５品 8,500円",
+        title: "実食！ ６品 5,000円",
         subtitle: "ジョワ Joie course",
-        description: "アミューズ、前菜、メイン×２、デザート、フリアンディーズ、\nコーヒーまたは紅茶",
+        description: "Amuse-bouches (3種)、Hors-d’œuvre、Entrée、Poisson／Viande、Riz、Dessert、Café",
         anchor: "joie",
       },
       {
-        title: "戸田市 ６～７品 12,500円",
+        title: "戸田市 ７品 8,000円",
         subtitle: "サンキャトル Cent Quatre course",
-        description: "アミューズ、前菜×２、メイン×２、デザート、フリアンディーズ、コーヒーまたは紅茶",
+        description: "Amuse-bouches (3種)、Hors-d’œuvre、Entrée、Poisson、Viande、Riz、Dessert、Café",
         anchor: "cent-quatre",
       },
     ],

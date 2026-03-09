@@ -30,7 +30,7 @@ export default async function ReservePage({ searchParams }: { searchParams?: Sea
       style={{
         "--reserve-top-mobile": `${reservePageSpacing.topMobile}px`,
         "--reserve-top-desktop": `${reservePageSpacing.topDesktop}px`,
-      }}
+      } as Record<string, string>}
     >
       <header className="-mt-[76px] text-center md:mt-0">
         <h1

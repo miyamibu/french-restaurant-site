@@ -12,6 +12,7 @@ import {
   type AvailabilityReason,
   type AvailabilityResult,
 } from "@/lib/reservation-capacity";
+import { findReservationsCompat } from "@/lib/reservation-compat";
 
 export type AvailabilityResponse = AvailabilityResult & {
   callPhone: string;
@@ -31,23 +32,22 @@ export async function getAvailability(
   const businessDay = await prisma.businessDay.findUnique({
     where: { date: input.date },
   });
-  const reservations = await prisma.reservation.findMany({
+  const reservations = await findReservationsCompat(prisma, {
     where: {
       date: input.date,
       servicePeriod: input.servicePeriod,
       status: ReservationStatus.CONFIRMED,
-    },
-    select: {
-      partySize: true,
-      status: true,
-      servicePeriod: true,
     },
   });
 
   return {
     ...evaluateReservationAvailability({
       ...input,
-      existingReservations: reservations,
+      existingReservations: reservations.map((reservation) => ({
+        partySize: reservation.partySize,
+        status: reservation.status,
+        servicePeriod: reservation.servicePeriod,
+      })),
       businessDayClosed: businessDay?.isClosed,
     }),
     callPhone,

@@ -4,6 +4,7 @@ import { ReservationStatus } from "@prisma/client";
 import { isAuthorized } from "@/lib/basic-auth";
 import { apiError } from "@/lib/api-security";
 import { getRequestId, logError } from "@/lib/logger";
+import { findReservationsCompat } from "@/lib/reservation-compat";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const reservations = await prisma.reservation.findMany({
+    const reservations = await findReservationsCompat(prisma, {
       where: {
         date: date ?? undefined,
         status,

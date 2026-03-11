@@ -5,6 +5,10 @@ import { isAuthorized } from "@/lib/basic-auth";
 import { apiError, enforceWriteRequestSecurity } from "@/lib/api-security";
 import { updateReservationStatusSchema, zodFields } from "@/lib/validation";
 import { getRequestId, logError } from "@/lib/logger";
+import {
+  findReservationByIdCompat,
+  updateReservationStatusCompat,
+} from "@/lib/reservation-compat";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +24,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   }
 
   try {
-    const reservation = await prisma.reservation.findUnique({ where: { id } });
+    const reservation = await findReservationByIdCompat(prisma, id);
     if (!reservation) {
       return apiError(404, { error: "Not found", code: "RESERVATION_NOT_FOUND", requestId });
     }
@@ -64,10 +68,14 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
       });
     }
 
-    const updated = await prisma.reservation.update({
-      where: { id },
-      data: { status: parsed.data.status },
-    });
+    const updated = await updateReservationStatusCompat(prisma, id, parsed.data.status);
+    if (!updated) {
+      return apiError(404, {
+        error: "Not found",
+        code: "RESERVATION_NOT_FOUND",
+        requestId,
+      });
+    }
     return NextResponse.json(updated);
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {

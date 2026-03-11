@@ -6,6 +6,7 @@ import { formatJst, todayJst } from "@/lib/dates";
 import { env, hasLineMessagingEnv } from "@/lib/env";
 import { apiError } from "@/lib/api-security";
 import { getRequestId, logError, logInfo } from "@/lib/logger";
+import { findReservationsCompat } from "@/lib/reservation-compat";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -26,7 +27,7 @@ async function executeReminderCron() {
   const tomorrow = addDays(todayJst(), 1);
   const target = formatJst(tomorrow);
 
-  const reservations = await prisma.reservation.findMany({
+  const reservations = await findReservationsCompat(prisma, {
     where: { date: target, status: ReservationStatus.CONFIRMED },
     orderBy: { createdAt: "asc" },
   });

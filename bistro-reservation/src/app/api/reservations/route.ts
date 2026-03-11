@@ -9,6 +9,10 @@ import {
 import { sendReservationEmail } from "@/lib/email";
 import { buildReservationAdvisoryLockKey } from "@/lib/reservation-lock";
 import { evaluateReservationAvailability } from "@/lib/reservation-capacity";
+import {
+  createReservationCompat,
+  findReservationsCompat,
+} from "@/lib/reservation-compat";
 import { createReservationSchema, zodFields } from "@/lib/validation";
 import { apiError, enforceWriteRequestSecurity } from "@/lib/api-security";
 import { getContactPayload } from "@/lib/contact";
@@ -121,16 +125,11 @@ export async function POST(request: NextRequest) {
           await acquireReservationAdvisoryLock(tx, date, servicePeriod);
 
           const businessDay = await tx.businessDay.findUnique({ where: { date } });
-          const confirmed = await tx.reservation.findMany({
+          const confirmed = await findReservationsCompat(tx, {
             where: {
               date,
               servicePeriod,
               status: ReservationStatus.CONFIRMED,
-            },
-            select: {
-              partySize: true,
-              status: true,
-              servicePeriod: true,
             },
           });
 
@@ -138,7 +137,11 @@ export async function POST(request: NextRequest) {
             date,
             servicePeriod,
             partySize,
-            existingReservations: confirmed,
+            existingReservations: confirmed.map((reservation) => ({
+              partySize: reservation.partySize,
+              status: reservation.status,
+              servicePeriod: reservation.servicePeriod,
+            })),
             businessDayClosed: businessDay?.isClosed,
           });
 
@@ -146,19 +149,17 @@ export async function POST(request: NextRequest) {
             throw new Error(availability.reason);
           }
 
-          return tx.reservation.create({
-            data: {
-              date,
-              servicePeriod,
-              seatType: "MAIN",
-              partySize,
-              arrivalTime,
-              name,
-              phone,
-              note: reservationNote,
-              status: ReservationStatus.CONFIRMED,
-              lineUserId: lineUserId ?? null,
-            },
+          return createReservationCompat(tx, {
+            date,
+            servicePeriod,
+            seatType: "MAIN",
+            partySize,
+            arrivalTime,
+            name,
+            phone,
+            note: reservationNote,
+            status: ReservationStatus.CONFIRMED,
+            lineUserId: lineUserId ?? null,
           });
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }

@@ -6,6 +6,7 @@ import { formatJst } from "@/lib/dates";
 import { ReservationStatus } from "@prisma/client";
 import CancelButton from "@/components/cancel-button";
 import { parseReservationNote } from "@/lib/reservation-note";
+import { findReservationsCompat } from "@/lib/reservation-compat";
 
 export const dynamic = "force-dynamic";
 
@@ -41,25 +42,22 @@ export default async function AdminReservations({
     "yyyy-MM-dd"
   );
 
-  const reservations = await prisma.reservation.findMany({
+  const reservations = await findReservationsCompat(prisma, {
     where: {
       date,
       status: statusFilter,
     },
     orderBy: [{ date: "asc" }, { createdAt: "asc" }],
   });
-  const todayReservations = await prisma.reservation.findMany({
+  const todayReservations = await findReservationsCompat(prisma, {
     where: {
       date: defaultDate,
       status: statusFilter,
     },
-    select: {
-      partySize: true,
-    },
   });
   const todayGroupCount = todayReservations.length;
   const todayPartyTotal = todayReservations.reduce((sum, row) => sum + row.partySize, 0);
-  const monthReservations = await prisma.reservation.findMany({
+  const monthReservations = await findReservationsCompat(prisma, {
     where: {
       date: {
         gte: calendarMonthStartStr,
@@ -67,7 +65,6 @@ export default async function AdminReservations({
       },
       status: statusFilter,
     },
-    select: { date: true, name: true },
     orderBy: [{ date: "asc" }, { createdAt: "asc" }],
   });
   const reservationCountByDate = monthReservations.reduce<Record<string, number>>(

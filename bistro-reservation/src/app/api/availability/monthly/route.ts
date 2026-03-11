@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { apiError } from "@/lib/api-security";
 import { getRequestId, logError } from "@/lib/logger";
 import { evaluateReservationAvailability } from "@/lib/reservation-capacity";
+import { findReservationsCompat } from "@/lib/reservation-compat";
 import {
   monthStringSchema,
   reservationServicePeriodSchema,
@@ -101,17 +102,11 @@ export async function GET(request: NextRequest) {
         },
         select: { date: true },
       }),
-      prisma.reservation.findMany({
+      findReservationsCompat(prisma, {
         where: {
           date: { in: dateKeys },
           servicePeriod: parsedServicePeriod.data,
           status: ReservationStatus.CONFIRMED,
-        },
-        select: {
-          date: true,
-          partySize: true,
-          status: true,
-          servicePeriod: true,
         },
       }),
     ]);
@@ -128,7 +123,11 @@ export async function GET(request: NextRequest) {
       >
     >((acc, reservation) => {
       const current = acc[reservation.date] ?? [];
-      current.push(reservation);
+      current.push({
+        partySize: reservation.partySize,
+        status: reservation.status,
+        servicePeriod: reservation.servicePeriod,
+      });
       acc[reservation.date] = current;
       return acc;
     }, {});

@@ -66,10 +66,12 @@ function buildWhereClauses(where: Prisma.ReservationWhereInput | undefined) {
   }
 
   if (typeof where.status === "string") {
-    clauses.push(Prisma.sql`"status" = ${where.status}`);
+    clauses.push(Prisma.sql`"status" = CAST(${where.status} AS "ReservationStatus")`);
   } else if (where.status && typeof where.status === "object" && !Array.isArray(where.status)) {
     if ("not" in where.status && typeof where.status.not === "string") {
-      clauses.push(Prisma.sql`"status" <> ${where.status.not}`);
+      clauses.push(
+        Prisma.sql`"status" <> CAST(${where.status.not} AS "ReservationStatus")`
+      );
     }
   }
 
@@ -253,13 +255,13 @@ export async function createReservationCompat(
       VALUES (
         ${id},
         ${data.date},
-        ${data.seatType},
+        CAST(${data.seatType} AS "SeatType"),
         ${data.partySize},
         ${data.arrivalTime},
         ${data.name},
         ${data.phone},
         ${data.note},
-        ${data.status},
+        CAST(${data.status} AS "ReservationStatus"),
         ${data.lineUserId},
         ${now},
         ${now}
@@ -313,7 +315,7 @@ export async function updateReservationStatusCompat(
     const rows = await client.$queryRaw<LegacyReservationRow[]>(Prisma.sql`
       UPDATE "Reservation"
       SET
-        "status" = ${status},
+        "status" = CAST(${status} AS "ReservationStatus"),
         "updatedAt" = ${new Date()}
       WHERE "id" = ${id}
       RETURNING

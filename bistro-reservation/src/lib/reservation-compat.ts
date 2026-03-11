@@ -130,12 +130,17 @@ function sortReservations(
 }
 
 export function isMissingServicePeriodColumnError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  const hasServicePeriodHint = /serviceperiod/i.test(message);
+
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    return error.code === "P2022" && error.message.includes("servicePeriod");
+    return error.code === "P2022"
+      ? true
+      : hasServicePeriodHint &&
+          /(does not exist|not found|unknown|invalid|missing)/i.test(message);
   }
 
-  const message = error instanceof Error ? error.message : String(error);
-  return /servicePeriod/i.test(message) && /(column|field).*(does not exist|not found)/i.test(message);
+  return hasServicePeriodHint && /(does not exist|not found|unknown|invalid|missing)/i.test(message);
 }
 
 async function findManyLegacyReservations(

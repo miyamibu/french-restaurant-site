@@ -1,7 +1,8 @@
-import { addMonths, isAfter, startOfDay } from "date-fns";
+import { addMonths, isAfter, isBefore, startOfDay } from "date-fns";
+import { RESERVATION_CONFIG } from "@/lib/reservation-config";
 
 export const JST_TZ = "Asia/Tokyo";
-export const MAX_MONTH_AHEAD = 3;
+export const MAX_MONTH_AHEAD = RESERVATION_CONFIG.bookingWindowMonths;
 
 function toJstDateString(date: Date): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -18,12 +19,43 @@ function toJstDateString(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+function getJstDateTimeParts(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: JST_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+
+  const year = parts.find((part) => part.type === "year")?.value ?? "0000";
+  const month = parts.find((part) => part.type === "month")?.value ?? "01";
+  const day = parts.find((part) => part.type === "day")?.value ?? "01";
+  const hour = parts.find((part) => part.type === "hour")?.value ?? "00";
+  const minute = parts.find((part) => part.type === "minute")?.value ?? "00";
+  const second = parts.find((part) => part.type === "second")?.value ?? "00";
+
+  return { year, month, day, hour, minute, second };
+}
+
 export function todayJst(): Date {
   return jstDateFromString(toJstDateString(new Date()));
 }
 
+export function nowJst(): Date {
+  const { year, month, day, hour, minute, second } = getJstDateTimeParts(new Date());
+  return new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}+09:00`);
+}
+
 export function jstDateFromString(date: string): Date {
   return startOfDay(new Date(`${date}T00:00:00+09:00`));
+}
+
+export function jstDateTimeFromString(date: string, time: string): Date {
+  return new Date(`${date}T${time}:00+09:00`);
 }
 
 export function formatJst(date: Date): string {
@@ -39,6 +71,11 @@ export function isBeyondRange(date: Date): boolean {
   const today = todayJst();
   const limit = addMonths(today, MAX_MONTH_AHEAD);
   return isAfter(date, limit);
+}
+
+export function isAfterOrSameOpeningDate(date: Date): boolean {
+  const openingDate = jstDateFromString(RESERVATION_CONFIG.openingDate);
+  return !isBefore(date, openingDate);
 }
 
 /**

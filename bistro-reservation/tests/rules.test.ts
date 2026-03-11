@@ -1,89 +1,173 @@
-import { addMonths } from "date-fns";
-import { describe, it, expect } from "vitest";
+import { addDays, addMonths } from "date-fns";
+import { describe, expect, it } from "vitest";
 import {
-  isArrivalTimeValid,
-  isWithinAcceptance,
-  MAIN_CAPACITY,
-} from "@/lib/availability";
-import { todayJst, jstDateFromString, formatJst } from "@/lib/dates";
+  canAcceptWebReservation,
+  getAllowedArrivalTimesForServicePeriod,
+  getNextBookableReservationDate,
+  getReservationCutoffDate,
+  isBeforeOpeningReservationDate,
+  isClosedReservationWeekday,
+} from "@/lib/booking-rules";
+import { isArrivalTimeValid, isCoursePeriodConsistent, isWithinAcceptance } from "@/lib/availability";
+import {
+  formatJst,
+  jstDateFromString,
+  jstDateTimeFromString,
+  todayJst,
+} from "@/lib/dates";
 
 describe("Availability Rules", () => {
   describe("isArrivalTimeValid", () => {
-    it("should accept valid arrival times - 17:30", () => {
-      expect(isArrivalTimeValid("17:30")).toBe(true);
+    it("accepts valid lunch reservation slots", () => {
+      expect(isArrivalTimeValid("11:00", "LUNCH")).toBe(true);
+      expect(isArrivalTimeValid("13:30", "LUNCH")).toBe(true);
     });
 
-    it("should accept valid arrival times - 18:00", () => {
-      expect(isArrivalTimeValid("18:00")).toBe(true);
+    it("accepts valid dinner reservation slots", () => {
+      expect(isArrivalTimeValid("17:30", "DINNER")).toBe(true);
+      expect(isArrivalTimeValid("20:00", "DINNER")).toBe(true);
     });
 
-    it("should accept valid arrival times - 23:59", () => {
-      expect(isArrivalTimeValid("23:59")).toBe(true);
+    it("rejects slots outside the configured reservation windows", () => {
+      expect(isArrivalTimeValid("10:30", "LUNCH")).toBe(false);
+      expect(isArrivalTimeValid("14:00", "LUNCH")).toBe(false);
+      expect(isArrivalTimeValid("20:30", "DINNER")).toBe(false);
     });
 
-    it("should reject before 17:30", () => {
-      expect(isArrivalTimeValid("17:29")).toBe(false);
-      expect(isArrivalTimeValid("17:00")).toBe(false);
-      expect(isArrivalTimeValid("12:00")).toBe(false);
+    it("rejects invalid format and missing values", () => {
+      expect(isArrivalTimeValid("not-time", "DINNER")).toBe(false);
+      expect(isArrivalTimeValid("25:00", "DINNER")).toBe(false);
+      expect(isArrivalTimeValid(null, "DINNER")).toBe(false);
+      expect(isArrivalTimeValid(undefined, "DINNER")).toBe(false);
+    });
+  });
+
+  describe("course and service period consistency", () => {
+    it("accepts matching course periods", () => {
+      expect(isCoursePeriodConsistent("ランチ: 席のみ", "LUNCH")).toBe(true);
+      expect(isCoursePeriodConsistent("ディナー: 席のみ", "DINNER")).toBe(true);
     });
 
-    it("should reject invalid format", () => {
-      expect(isArrivalTimeValid("not-time")).toBe(false);
-      expect(isArrivalTimeValid("25:00")).toBe(false);
-      expect(isArrivalTimeValid("12:60")).toBe(false);
-    });
-
-    it("should handle null/undefined", () => {
-      expect(isArrivalTimeValid(null)).toBe(true);
-      expect(isArrivalTimeValid(undefined)).toBe(true);
+    it("rejects mismatched course periods", () => {
+      expect(isCoursePeriodConsistent("ランチ: 席のみ", "DINNER")).toBe(false);
+      expect(isCoursePeriodConsistent("ディナー: 席のみ", "LUNCH")).toBe(false);
     });
   });
 
   describe("isWithinAcceptance", () => {
-    it("should reject today", () => {
-      const today = formatJst(todayJst());
-      expect(isWithinAcceptance(today)).toBe(false);
+    it("rejects dates before opening", () => {
+      expect(isWithinAcceptance("2026-04-02")).toBe(false);
     });
 
-    it("should accept tomorrow", () => {
-      const tomorrow = formatJst(new Date(todayJst().getTime() + 86400000));
-      expect(isWithinAcceptance(tomorrow)).toBe(true);
+    it("accepts the next bookable date", () => {
+      const nextBookable = formatJst(getNextBookableReservationDate());
+      expect(isWithinAcceptance(nextBookable)).toBe(true);
     });
 
-    it("should accept dates within 3 months", () => {
-      const date30d = formatJst(new Date(todayJst().getTime() + 30 * 86400000));
-      expect(isWithinAcceptance(date30d)).toBe(true);
+    it("accepts dates within 3 months", () => {
+      const date30d = getNextBookableReservationDate(addDays(todayJst(), 30));
+      expect(isWithinAcceptance(formatJst(date30d))).toBe(true);
     });
 
-    it("should accept date at 3-month boundary", () => {
-      const dateAtBoundary = formatJst(addMonths(todayJst(), 3));
-      expect(isWithinAcceptance(dateAtBoundary)).toBe(true);
+    it("handles the 3-month boundary with weekday rules", () => {
+      const dateAtBoundary = addMonths(todayJst(), 3);
+      expect(isWithinAcceptance(formatJst(dateAtBoundary))).toBe(
+        !isBeforeOpeningReservationDate(dateAtBoundary) &&
+          !isClosedReservationWeekday(dateAtBoundary)
+      );
     });
 
-    it("should reject beyond 3 months", () => {
-      const dateBeyondBoundary = formatJst(new Date(addMonths(todayJst(), 3).getTime() + 86400000));
+    it("rejects beyond 3 months", () => {
+      const dateBeyondBoundary = formatJst(
+        new Date(addMonths(todayJst(), 3).getTime() + 86400000)
+      );
       expect(isWithinAcceptance(dateBeyondBoundary)).toBe(false);
     });
 
-    it("should reject past dates", () => {
+    it("rejects past dates", () => {
       const yesterday = formatJst(new Date(todayJst().getTime() - 86400000));
       expect(isWithinAcceptance(yesterday)).toBe(false);
     });
   });
 
-  describe("MAIN_CAPACITY constant", () => {
-    it("should have MAIN_CAPACITY set to 12", () => {
-      expect(MAIN_CAPACITY).toBe(12);
+  describe("Reservation slots", () => {
+    it("returns lunch slots only for lunch service", () => {
+      expect(getAllowedArrivalTimesForServicePeriod("LUNCH")).toEqual([
+        "11:00",
+        "11:30",
+        "12:00",
+        "12:30",
+        "13:00",
+        "13:30",
+      ]);
+    });
+
+    it("returns dinner slots only for dinner service", () => {
+      expect(getAllowedArrivalTimesForServicePeriod("DINNER")).toEqual([
+        "17:30",
+        "18:00",
+        "18:30",
+        "19:00",
+        "19:30",
+        "20:00",
+      ]);
     });
   });
 
   describe("Business day rules", () => {
-    it("should indicate valid date format handling", () => {
-      // This test verifies that dates are properly parsed as JST
-      const dateStr = "2026-02-24";
+    it("handles valid date formatting", () => {
+      const dateStr = "2026-04-03";
       const parsed = jstDateFromString(dateStr);
       const formatted = formatJst(parsed);
       expect(formatted).toBe(dateStr);
+    });
+
+    it("treats Monday and Tuesday as closed reservation weekdays", () => {
+      expect(isClosedReservationWeekday(jstDateFromString("2026-03-09"))).toBe(true);
+      expect(isClosedReservationWeekday(jstDateFromString("2026-03-10"))).toBe(true);
+      expect(isClosedReservationWeekday(jstDateFromString("2026-03-11"))).toBe(false);
+    });
+
+    it("moves to Wednesday when starting from a closed Monday", () => {
+      let nextMonday = addDays(todayJst(), 1);
+      while (nextMonday.getDay() !== 1) {
+        nextMonday = addDays(nextMonday, 1);
+      }
+
+      const nextBookable = getNextBookableReservationDate(nextMonday);
+      expect(nextBookable.getDay()).not.toBe(1);
+      expect(nextBookable.getDay()).not.toBe(2);
+      expect(formatJst(nextBookable) >= "2026-04-03").toBe(true);
+    });
+
+    it("rejects closed weekdays for web reservations", () => {
+      let nextMonday = addDays(todayJst(), 1);
+      while (nextMonday.getDay() !== 1) {
+        nextMonday = addDays(nextMonday, 1);
+      }
+
+      expect(canAcceptWebReservation(nextMonday)).toBe(false);
+    });
+  });
+
+  describe("Cutoff rules", () => {
+    it("builds the previous-day 22:00 cutoff timestamp", () => {
+      const reservationDate = jstDateFromString("2026-04-10");
+      expect(getReservationCutoffDate(reservationDate).toISOString()).toBe(
+        "2026-04-09T13:00:00.000Z"
+      );
+    });
+
+    it("rejects a reservation date after the cutoff has passed", () => {
+      const reservationDate = jstDateFromString("2026-04-10");
+      const afterCutoff = jstDateTimeFromString("2026-04-09", "22:30");
+      expect(canAcceptWebReservation(reservationDate, { now: afterCutoff })).toBe(false);
+    });
+
+    it("accepts a reservation date before the cutoff passes", () => {
+      const reservationDate = jstDateFromString("2026-04-10");
+      const beforeCutoff = jstDateTimeFromString("2026-04-09", "21:59");
+      expect(canAcceptWebReservation(reservationDate, { now: beforeCutoff })).toBe(true);
     });
   });
 });

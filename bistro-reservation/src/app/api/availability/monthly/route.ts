@@ -1,12 +1,15 @@
 import { ReservationStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { getContactPayload } from "@/lib/contact";
-import { type AvailabilityResult, MAIN_CAPACITY } from "@/lib/availability";
-import { isBeyondRange, isSameOrBeforeToday, jstDateFromString } from "@/lib/dates";
 import { prisma } from "@/lib/prisma";
 import { apiError } from "@/lib/api-security";
 import { getRequestId, logError } from "@/lib/logger";
-import { monthStringSchema } from "@/lib/validation";
+import { evaluateReservationAvailability } from "@/lib/reservation-capacity";
+import {
+  monthStringSchema,
+  reservationServicePeriodSchema,
+} from "@/lib/validation";
+import type { AvailabilityResponse } from "@/lib/availability";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +35,42 @@ export async function GET(request: NextRequest) {
     return apiError(400, {
       error: "month must be YYYY-MM format",
       code: "INVALID_MONTH",
+      requestId,
+    });
+  }
+
+  const servicePeriod = request.nextUrl.searchParams.get("servicePeriod");
+  if (!servicePeriod) {
+    return apiError(400, {
+      error: "servicePeriod is required",
+      code: "MISSING_SERVICE_PERIOD",
+      requestId,
+    });
+  }
+
+  const parsedServicePeriod = reservationServicePeriodSchema.safeParse(servicePeriod);
+  if (!parsedServicePeriod.success) {
+    return apiError(400, {
+      error: "servicePeriod must be LUNCH or DINNER",
+      code: "INVALID_SERVICE_PERIOD",
+      requestId,
+    });
+  }
+
+  const partySizeParam = request.nextUrl.searchParams.get("partySize");
+  if (!partySizeParam) {
+    return apiError(400, {
+      error: "partySize is required",
+      code: "MISSING_PARTY_SIZE",
+      requestId,
+    });
+  }
+
+  const partySize = Number(partySizeParam);
+  if (!Number.isInteger(partySize) || partySize < 1) {
+    return apiError(400, {
+      error: "partySize must be a positive integer",
+      code: "INVALID_PARTY_SIZE",
       requestId,
     });
   }
@@ -65,78 +104,47 @@ export async function GET(request: NextRequest) {
       prisma.reservation.findMany({
         where: {
           date: { in: dateKeys },
+          servicePeriod: parsedServicePeriod.data,
           status: ReservationStatus.CONFIRMED,
         },
         select: {
           date: true,
           partySize: true,
+          status: true,
+          servicePeriod: true,
         },
       }),
     ]);
 
     const closedDates = new Set(businessDays.map((row) => row.date));
-    const reservationBuckets = reservations.reduce<Record<string, { total: number; hasBanquet: boolean }>>(
-      (acc, reservation) => {
-        const current = acc[reservation.date] ?? { total: 0, hasBanquet: false };
-        current.total += reservation.partySize;
-        current.hasBanquet = current.hasBanquet || reservation.partySize >= 10;
-        acc[reservation.date] = current;
-        return acc;
-      },
-      {}
-    );
+    const reservationsByDate = reservations.reduce<
+      Record<
+        string,
+        Array<{
+          partySize: number;
+          status: ReservationStatus;
+          servicePeriod: typeof parsedServicePeriod.data;
+        }>
+      >
+    >((acc, reservation) => {
+      const current = acc[reservation.date] ?? [];
+      current.push(reservation);
+      acc[reservation.date] = current;
+      return acc;
+    }, {});
 
-    const result = dateKeys.reduce<Record<string, AvailabilityResult>>((acc, dateKey) => {
-      const parsedDate = jstDateFromString(dateKey);
-
-      if (isSameOrBeforeToday(parsedDate)) {
-        acc[dateKey] = {
-          ...contact,
-          bookable: false,
-          reason: "SAME_DAY_BLOCKED",
-          mainRemaining: 0,
-          room1Available: false,
-          room2Available: false,
-        };
-        return acc;
-      }
-
-      if (isBeyondRange(parsedDate)) {
-        acc[dateKey] = {
-          ...contact,
-          bookable: false,
-          reason: "OUT_OF_RANGE",
-          mainRemaining: 0,
-          room1Available: false,
-          room2Available: false,
-        };
-        return acc;
-      }
-
-      if (closedDates.has(dateKey)) {
-        acc[dateKey] = {
-          ...contact,
-          bookable: false,
-          reason: "CLOSED",
-          mainRemaining: 0,
-          room1Available: false,
-          room2Available: false,
-        };
-        return acc;
-      }
-
-      const reserved = reservationBuckets[dateKey] ?? { total: 0, hasBanquet: false };
-      const mainRemaining = Math.max(0, MAIN_CAPACITY - reserved.total);
-      const bookable = !reserved.hasBanquet && mainRemaining > 0;
-
+    const result = dateKeys.reduce<Record<string, AvailabilityResponse>>((acc, dateKey) => {
       acc[dateKey] = {
+        ...evaluateReservationAvailability({
+          date: dateKey,
+          servicePeriod: parsedServicePeriod.data,
+          partySize,
+          existingReservations: reservationsByDate[dateKey] ?? [],
+          businessDayClosed: closedDates.has(dateKey),
+        }),
         ...contact,
-        bookable,
-        reason: bookable ? "OK" : "FULL",
-        mainRemaining,
-        room1Available: false,
-        room2Available: false,
       };
+
       return acc;
     }, {});
 
@@ -154,7 +162,12 @@ export async function GET(request: NextRequest) {
       requestId,
       route,
       errorCode: "AVAILABILITY_MONTHLY_FETCH_FAILED",
-      context: { month, message: error instanceof Error ? error.message : String(error) },
+      context: {
+        month,
+        servicePeriod,
+        partySize,
+        message: error instanceof Error ? error.message : String(error),
+      },
     });
     return apiError(500, {
       error: "Failed to fetch monthly availability",

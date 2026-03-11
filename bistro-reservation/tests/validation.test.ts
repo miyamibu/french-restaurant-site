@@ -5,6 +5,7 @@ describe("Validation schemas", () => {
   it("accepts valid reservation payload", () => {
     const parsed = createReservationSchema.safeParse({
       date: "2026-03-15",
+      servicePeriod: "DINNER",
       partySize: 2,
       arrivalTime: "18:30",
       name: "山田 太郎",
@@ -18,7 +19,31 @@ describe("Validation schemas", () => {
   it("rejects invalid reservation party size", () => {
     const parsed = createReservationSchema.safeParse({
       date: "2026-03-15",
+      servicePeriod: "DINNER",
       partySize: 0,
+      arrivalTime: "18:00",
+      name: "山田 太郎",
+      phone: "090-1111-2222",
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("rejects reservation payload without arrival time", () => {
+    const parsed = createReservationSchema.safeParse({
+      date: "2026-03-15",
+      servicePeriod: "DINNER",
+      partySize: 2,
+      name: "山田 太郎",
+      phone: "090-1111-2222",
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("rejects reservation payload without service period", () => {
+    const parsed = createReservationSchema.safeParse({
+      date: "2026-03-15",
+      partySize: 2,
+      arrivalTime: "18:00",
       name: "山田 太郎",
       phone: "090-1111-2222",
     });

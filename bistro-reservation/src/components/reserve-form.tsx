@@ -13,7 +13,26 @@ import {
   subMonths,
 } from "date-fns";
 import { ja } from "date-fns/locale";
+import {
+  getAllowedArrivalTimesForServicePeriod,
+  getDefaultArrivalTimeForCourse,
+  getReservationServiceLabel,
+  inferReservationServicePeriodFromArrivalTime,
+  inferReservationServicePeriodFromCourse,
+  isArrivalTimeAllowed,
+  isClosedReservationWeekday,
+  normalizeReservationDateInput,
+} from "@/lib/booking-rules";
 import { CONTACT_PHONE_DISPLAY, CONTACT_MESSAGE, CONTACT_TEL_LINK } from "@/lib/contact";
+import {
+  getReservationCoursesForServicePeriod,
+  RESERVATION_BUSINESS_HOURS_TEXT,
+  RESERVATION_CLOSED_TEXT,
+  RESERVATION_CONFIG,
+  RESERVATION_CUTOFF_TEXT,
+  RESERVATION_WEB_HOURS_TEXT,
+  type ReservationServicePeriodKey,
+} from "@/lib/reservation-config";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,100 +41,113 @@ interface Props {
   defaultDate: string;
   afterAvailabilityNote?: string[];
   initialDate?: string;
+  initialServicePeriod?: string;
   initialPartySize?: string;
   initialCourse?: string;
   initialArrivalTime?: string;
 }
 
 interface AvailabilityState {
-  bookable: boolean;
+  webBookable: boolean;
   reason: string;
-  mainRemaining: number;
-  room1Available: boolean;
-  room2Available: boolean;
   callPhone: string;
   callMessage: string;
 }
 
 type MonthlyAvailabilityMap = Record<string, AvailabilityState | null>;
 
-const courseOptions = [
-  {
-    group: "ランチ",
-    items: [
-      { label: "プティラ　Petite La course", value: "ランチ: プティラ　Petite La course" },
-      { label: "席のみ", value: "ランチ: 席のみ" },
-    ],
-  },
-  {
-    group: "ディナー",
-    items: [
-      { label: "ジョワ　Joie course", value: "ディナー: ジョワ　Joie course" },
-      { label: "サンキャトル　Cent Quatre course", value: "ディナー: サンキャトル　Cent Quatre course" },
-      { label: "席のみ", value: "ディナー: 席のみ" },
-    ],
-  },
-];
-
-const flatCourseOptions = courseOptions.flatMap((group) => group.items);
-
 const initialAvailability: AvailabilityState = {
-  bookable: false,
+  webBookable: false,
   reason: "CHECKING",
-  mainRemaining: 0,
-  room1Available: false,
-  room2Available: false,
   callPhone: CONTACT_PHONE_DISPLAY,
   callMessage: CONTACT_MESSAGE,
 };
 
-function sanitizeDate(value: string | undefined, fallback: string) {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return fallback;
-  }
+const nonSelectableReasons = new Set([
+  "BEFORE_OPENING",
+  "OUT_OF_RANGE",
+  "CLOSED",
+  "SAME_DAY_BLOCKED",
+  "CUTOFF_PASSED",
+]);
 
-  const parsed = parseISO(value);
-  return Number.isNaN(parsed.getTime()) ? fallback : value;
+function sanitizeDate(value: string | undefined, fallback: string) {
+  const normalized = normalizeReservationDateInput(value, fallback);
+  const parsed = parseISO(normalized);
+  return Number.isNaN(parsed.getTime()) ? fallback : normalized;
 }
 
 function sanitizePartySize(value: string | undefined) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed)) return 2;
-  return Math.min(12, Math.max(1, parsed));
+  return Math.min(RESERVATION_CONFIG.maxPartySize, Math.max(1, parsed));
 }
 
-function sanitizeArrivalTime(value: string | undefined) {
-  if (!value) return "";
-
-  const match = /^(\d{2}):(\d{2})$/.exec(value);
-  if (!match) return "";
-
-  const hour = Number(match[1]);
-  const minute = Number(match[2]);
-  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
-    return "";
+function sanitizeServicePeriod(
+  value: string | undefined,
+  course?: string,
+  arrivalTime?: string
+): ReservationServicePeriodKey {
+  if (value === "LUNCH" || value === "DINNER") {
+    return value;
   }
 
-  return value;
+  return (
+    inferReservationServicePeriodFromCourse(course) ??
+    inferReservationServicePeriodFromArrivalTime(arrivalTime) ??
+    "LUNCH"
+  );
+}
+
+function sanitizeCourse(
+  value: string | undefined,
+  servicePeriod: ReservationServicePeriodKey
+) {
+  const options = getReservationCoursesForServicePeriod(servicePeriod);
+  if (options.some((option) => option.value === value)) {
+    return value as string;
+  }
+
+  return options[0]?.value ?? "";
+}
+
+function sanitizeArrivalTime(
+  value: string | undefined,
+  servicePeriod: ReservationServicePeriodKey
+) {
+  if (value && isArrivalTimeAllowed(value, undefined, servicePeriod)) {
+    return value;
+  }
+
+  return getDefaultArrivalTimeForCourse(undefined, servicePeriod);
 }
 
 export function ReserveForm({
   defaultDate,
   afterAvailabilityNote,
   initialDate,
+  initialServicePeriod,
   initialPartySize,
   initialCourse,
   initialArrivalTime,
 }: Props) {
-  const defaultCourseValue = courseOptions[0].items[0].value;
-  const selectedInitialCourse = flatCourseOptions.some((item) => item.value === initialCourse)
-    ? (initialCourse as string)
-    : defaultCourseValue;
+  const selectedInitialServicePeriod = sanitizeServicePeriod(
+    initialServicePeriod,
+    initialCourse,
+    initialArrivalTime
+  );
+  const selectedInitialCourse = sanitizeCourse(initialCourse, selectedInitialServicePeriod);
+  const selectedInitialArrivalTime = sanitizeArrivalTime(
+    initialArrivalTime,
+    selectedInitialServicePeriod
+  );
+
   const [form, setForm] = useState({
     date: sanitizeDate(initialDate, defaultDate),
+    servicePeriod: selectedInitialServicePeriod,
     partySize: sanitizePartySize(initialPartySize),
     course: selectedInitialCourse,
-    arrivalTime: sanitizeArrivalTime(initialArrivalTime),
+    arrivalTime: selectedInitialArrivalTime,
     lastName: "",
     firstName: "",
     phone: "",
@@ -130,29 +162,63 @@ export function ReserveForm({
   );
   const [monthlyAvailability, setMonthlyAvailability] = useState<MonthlyAvailabilityMap>({});
 
-  useEffect(() => {
-    let active = true;
-    setAvailability((prev) => ({ ...prev, reason: "CHECKING" }));
-    fetch(`/api/availability?date=${form.date}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (!active) return;
-        setAvailability(data);
-      })
-      .catch(() => {
-        if (!active) return;
-        setAvailability({ ...initialAvailability, reason: "ERROR" });
-      });
-    return () => {
-      active = false;
-    };
-  }, [form.date]);
-
   const partyMin = 1;
-  const partyMax = 12;
+  const partyMax = RESERVATION_CONFIG.maxPartySize;
   const selectedDate = useMemo(() => parseISO(form.date), [form.date]);
   const today = useMemo(() => startOfDay(new Date()), []);
+  const courseOptions = useMemo(
+    () => getReservationCoursesForServicePeriod(form.servicePeriod),
+    [form.servicePeriod]
+  );
+  const arrivalTimeOptions = useMemo(
+    () => getAllowedArrivalTimesForServicePeriod(form.servicePeriod),
+    [form.servicePeriod]
+  );
+  const serviceLabel = useMemo(
+    () => getReservationServiceLabel(undefined, form.servicePeriod),
+    [form.servicePeriod]
+  );
   const dayLabels = ["日", "月", "火", "水", "木", "金", "土"] as const;
+
+  async function loadDailyAvailability(
+    date: string,
+    servicePeriod: ReservationServicePeriodKey,
+    partySize: number
+  ) {
+    const params = new URLSearchParams({
+      date,
+      servicePeriod,
+      partySize: String(partySize),
+    });
+    const response = await fetch(`/api/availability?${params.toString()}`);
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok || !data) {
+      throw new Error("DAILY_AVAILABILITY_FETCH_FAILED");
+    }
+
+    return data as AvailabilityState;
+  }
+
+  async function loadMonthlyAvailability(
+    monthStartDate: Date,
+    servicePeriod: ReservationServicePeriodKey,
+    partySize: number
+  ) {
+    const params = new URLSearchParams({
+      month: format(startOfMonth(monthStartDate), "yyyy-MM"),
+      servicePeriod,
+      partySize: String(partySize),
+    });
+    const response = await fetch(`/api/availability/monthly?${params.toString()}`);
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok || !data?.days) {
+      throw new Error("MONTHLY_AVAILABILITY_FETCH_FAILED");
+    }
+
+    return data.days as MonthlyAvailabilityMap;
+  }
 
   useEffect(() => {
     if (!Number.isNaN(selectedDate.getTime())) {
@@ -161,22 +227,51 @@ export function ReserveForm({
   }, [selectedDate]);
 
   useEffect(() => {
-    let active = true;
-    const monthStart = startOfMonth(calendarMonth);
-    const monthKey = format(monthStart, "yyyy-MM");
+    const fallbackCourse = courseOptions[0]?.value ?? "";
+    const nextCourse = courseOptions.some((option) => option.value === form.course)
+      ? form.course
+      : fallbackCourse;
+    const nextArrivalTime = isArrivalTimeAllowed(form.arrivalTime, undefined, form.servicePeriod)
+      ? form.arrivalTime
+      : getDefaultArrivalTimeForCourse(undefined, form.servicePeriod);
 
-    fetch(`/api/availability/monthly?month=${monthKey}`)
-      .then(async (response) => {
-        if (!response.ok) return null;
-        const payload = (await response.json()) as {
-          month?: string;
-          days?: MonthlyAvailabilityMap;
-        };
-        return payload.days ?? null;
+    if (nextCourse === form.course && nextArrivalTime === form.arrivalTime) {
+      return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      course: nextCourse,
+      arrivalTime: nextArrivalTime,
+    }));
+  }, [courseOptions, form.arrivalTime, form.course, form.servicePeriod]);
+
+  useEffect(() => {
+    let active = true;
+    setAvailability((prev) => ({ ...prev, reason: "CHECKING" }));
+
+    loadDailyAvailability(form.date, form.servicePeriod, form.partySize)
+      .then((data) => {
+        if (!active) return;
+        setAvailability(data);
       })
+      .catch(() => {
+        if (!active) return;
+        setAvailability({ ...initialAvailability, reason: "ERROR" });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [form.date, form.partySize, form.servicePeriod]);
+
+  useEffect(() => {
+    let active = true;
+
+    loadMonthlyAvailability(calendarMonth, form.servicePeriod, form.partySize)
       .then((days) => {
         if (!active) return;
-        setMonthlyAvailability(days ?? {});
+        setMonthlyAvailability(days);
       })
       .catch(() => {
         if (!active) return;
@@ -186,7 +281,7 @@ export function ReserveForm({
     return () => {
       active = false;
     };
-  }, [calendarMonth]);
+  }, [calendarMonth, form.partySize, form.servicePeriod]);
 
   function updateField<T extends keyof typeof form>(key: T, value: (typeof form)[T]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -195,6 +290,7 @@ export function ReserveForm({
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (submitting) return;
+
     setSubmitting(true);
     setError(null);
     setResult(null);
@@ -213,12 +309,13 @@ export function ReserveForm({
         },
         body: JSON.stringify({
           date: form.date,
+          servicePeriod: form.servicePeriod,
           course: form.course,
           phone: form.phone,
           name: fullName,
-          note: [form.course ? `コース: ${form.course}` : null, form.note].filter(Boolean).join("\n") || undefined,
+          note: form.note || undefined,
           partySize: Number(form.partySize),
-          arrivalTime: form.arrivalTime || undefined,
+          arrivalTime: form.arrivalTime,
         }),
         signal: controller.signal,
       });
@@ -226,8 +323,18 @@ export function ReserveForm({
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setResult(data.summary ?? "ご予約を受け付けました。");
+        const [nextDaily, nextMonthly] = await Promise.all([
+          loadDailyAvailability(form.date, form.servicePeriod, form.partySize).catch(
+            () => initialAvailability
+          ),
+          loadMonthlyAvailability(calendarMonth, form.servicePeriod, form.partySize).catch(
+            () => monthlyAvailability
+          ),
+        ]);
+        setAvailability(nextDaily);
+        setMonthlyAvailability(nextMonthly);
       } else {
-        setError(data.reason ?? "予約に失敗しました。お電話ください。");
+        setError(data.error ?? data.reason ?? "予約に失敗しました。お電話ください。");
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
@@ -244,11 +351,10 @@ export function ReserveForm({
   const monthStart = startOfMonth(calendarMonth);
   const monthDays = getDaysInMonth(monthStart);
   const firstWeekday = getDay(monthStart);
-  const mainCapacity = 12;
   const calendarDayCircleSize = 28;
-  const calendarDayCellWidth = 34;
+  const calendarDayCellWidth = 40;
   const calendarDayMarkerNormalFontSize = 12;
-  const calendarDayCallMarkerFontSize = 10;
+  const calendarDayCallMarkerFontSize = 9;
   const calendarDayMarkerSymbolSize = 13;
   const calendarDayMarkerSymbolStrokeWidth = 2.2;
   const calendarDayMarkerNormalFontWeight = 900;
@@ -268,30 +374,38 @@ export function ReserveForm({
   const rightPanelPairGap = 12;
   const fieldLabelGap = 6;
   const infoInlineFontSize = 13;
-  const infoInlineLead = "貸し切りは10名以上でお申し込みください。";
-  const infoInlineMessage = "当日も席が空いている場合がありますのでご連絡いただけたらと思います。";
+  const infoInlineLead = "時間帯と人数を先に選ぶと、その条件で予約可否を表示します。";
+  const infoInlineMessage = "9名以上、または満席に近い枠は自動受付せず、お電話でご相談いただく運用です。";
   const cancelInlineMessage = "キャンセルはお電話にてお願いいたします。";
   const cancelInlinePhone = `電話番号：${CONTACT_PHONE_DISPLAY}`;
-  const calendarDayMarkerHeight =
-    Math.max(
-      calendarDayMarkerNormalFontSize,
-      calendarDayCallMarkerFontSize,
-      calendarDayMarkerSymbolSize
-    ) + 4;
+  const calendarDayMarkerHeight = Math.max(
+    calendarDayMarkerNormalFontSize,
+    calendarDayCallMarkerFontSize,
+    calendarDayMarkerSymbolSize
+  ) + 8;
   const calendarDayCellHeight =
     calendarDayCircleSize + calendarDayMarkerTopMargin + calendarDayMarkerHeight;
   const calendarCells = [
     ...Array.from({ length: firstWeekday }, () => null),
     ...Array.from({ length: monthDays }, (_, idx) => {
-      const dateObj = new Date(
-        monthStart.getFullYear(),
-        monthStart.getMonth(),
-        idx + 1
-      );
+      const dateObj = new Date(monthStart.getFullYear(), monthStart.getMonth(), idx + 1);
       const value = format(dateObj, "yyyy-MM-dd");
       return { value, dateObj };
     }),
   ];
+  const servicePeriodOptions: Array<{
+    value: ReservationServicePeriodKey;
+    label: string;
+  }> = [
+    { value: "LUNCH", label: "ランチ" },
+    { value: "DINNER", label: "ディナー" },
+  ];
+  const availabilitySummary =
+    availability.reason === "PHONE_ONLY"
+      ? "△ 電話のみ"
+      : availability.webBookable
+        ? "○"
+        : "";
 
   return (
     <form onSubmit={submit} className="rounded-xl bg-white p-6 space-y-4">
@@ -303,19 +417,66 @@ export function ReserveForm({
         </div>
       ) : null}
 
-      <section className="px-0 py-4 md:p-4">
+      <section className="space-y-4 px-0 py-2 md:p-4">
+        <div
+          className="grid sm:grid-cols-2"
+          style={{ columnGap: `${rightPanelPairGap}px`, rowGap: `${rightPanelPairGap}px` }}
+        >
+          <div className="grid" style={{ rowGap: `${fieldLabelGap}px` }}>
+            <Label htmlFor="service-period">時間帯</Label>
+            <select
+              id="service-period"
+              value={form.servicePeriod}
+              onChange={(e) =>
+                updateField("servicePeriod", e.target.value as ReservationServicePeriodKey)
+              }
+              className="h-10 w-full rounded-md border border-black bg-white px-3 text-sm text-[#2f1b0f] focus:outline-none focus:ring-2 focus:ring-black/20"
+              style={{ borderRadius: `${formFieldRadius}px` }}
+              required
+            >
+              {servicePeriodOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid" style={{ rowGap: `${fieldLabelGap}px` }}>
+            <Label htmlFor="party-size">人数</Label>
+            <select
+              id="party-size"
+              value={form.partySize}
+              onChange={(e) => updateField("partySize", Number(e.target.value))}
+              className="h-10 w-full rounded-md border border-black bg-white px-3 text-sm text-[#2f1b0f] focus:outline-none focus:ring-2 focus:ring-black/20"
+              style={{ borderRadius: `${formFieldRadius}px` }}
+              required
+            >
+              {Array.from({ length: partyMax - partyMin + 1 }, (_, i) => partyMin + i).map(
+                (n) => (
+                  <option key={n} value={n}>
+                    {n}名
+                  </option>
+                )
+              )}
+            </select>
+          </div>
+        </div>
+
         <div className="grid gap-6 md:grid-cols-[auto,minmax(0,1fr)] md:items-stretch">
           <div
             className="mx-auto mt-[-0.5cm] w-full max-w-[20.5rem] space-y-4 md:mx-0 md:mt-0 md:max-w-none"
           >
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-semibold text-[#2f1b0f]">来店日</p>
-              <div className="rounded-md border-0 bg-white px-3 py-2 text-sm text-[#2f1b0f]">
-                {format(selectedDate, "M月d日（E）", { locale: ja })}
+              <div className="rounded-md border-0 bg-white px-3 py-2 text-right text-sm text-[#2f1b0f]">
+                <div>{format(selectedDate, "M月d日（E）", { locale: ja })}</div>
+                <div className="text-xs text-[#7b6b5b]">
+                  {serviceLabel} / {form.partySize}名 {availabilitySummary ? `/ ${availabilitySummary}` : ""}
+                </div>
               </div>
             </div>
 
-            <div className="mx-auto max-w-[17.5rem] rounded-md border-0 bg-white p-3">
+            <div className="mx-auto max-w-[19rem] rounded-md border-0 bg-white p-3">
               <div className="mb-2 flex items-center justify-between">
                 <button
                   type="button"
@@ -389,38 +550,34 @@ export function ReserveForm({
 
                   const isSelected = cell.value === form.date;
                   const cellDay = startOfDay(cell.dateObj);
-                  const isTodayCell = cellDay.getTime() === today.getTime();
-                  const isPastCell = cellDay.getTime() < today.getTime();
                   const isSameOrPast = cellDay.getTime() <= today.getTime();
                   const daily = monthlyAvailability[cell.value];
-                  const isClosedDay = daily?.reason === "CLOSED";
-                  const isDateDisabled = isSameOrPast || isClosedDay;
-                  const reservedCount =
-                    daily == null ? 0 : Math.max(0, mainCapacity - daily.mainRemaining);
+                  const isClosedDay =
+                    isClosedReservationWeekday(cellDay) || daily?.reason === "CLOSED";
+                  const isDateDisabled =
+                    isSameOrPast ||
+                    (daily != null && nonSelectableReasons.has(daily.reason));
 
                   let markerText = "";
-                  if (isTodayCell) {
-                    markerText = "電話";
-                  } else if (!isPastCell) {
-                    if (!daily) {
-                      markerText = "○";
-                    } else if (!daily.bookable || daily.reason !== "OK") {
-                      markerText = "電話";
-                    } else {
-                      markerText = reservedCount <= 10 ? "○" : "△";
-                    }
+                  if (isClosedDay) {
+                    markerText = "休";
+                  } else if (daily?.reason === "PHONE_ONLY") {
+                    markerText = "電話のみ";
+                  } else if (daily?.webBookable) {
+                    markerText = "○";
                   }
 
                   const markerFontSize =
-                    markerText === "電話"
+                    markerText === "電話のみ"
                       ? calendarDayCallMarkerFontSize
                       : calendarDayMarkerNormalFontSize;
                   const markerFontWeight =
-                    markerText === "電話"
+                    markerText === "電話のみ"
                       ? calendarDayCallMarkerFontWeight
                       : calendarDayMarkerNormalFontWeight;
-                  const markerColor = markerText === "電話" ? "#b32626" : "#c7a357";
-                  const markerIsSymbol = markerText === "○" || markerText === "△";
+                  const markerColor =
+                    markerText === "電話のみ" || markerText === "休" ? "#b32626" : "#c7a357";
+                  const markerIsSymbol = markerText === "○";
 
                   return (
                     <div
@@ -455,7 +612,7 @@ export function ReserveForm({
                       <span
                         className="block w-full select-none text-center"
                         style={{
-                          height: `${calendarDayMarkerHeight}px`,
+                          minHeight: `${calendarDayMarkerHeight}px`,
                           marginTop: `${calendarDayMarkerTopMargin}px`,
                           color: markerColor,
                           display: "flex",
@@ -468,7 +625,7 @@ export function ReserveForm({
                             : `${calendarDayMarkerHeight}px`,
                         }}
                       >
-                        {markerText === "○" && (
+                        {markerText === "○" ? (
                           <svg
                             aria-hidden
                             width={calendarDayMarkerSymbolSize}
@@ -484,24 +641,9 @@ export function ReserveForm({
                               strokeWidth={calendarDayMarkerSymbolStrokeWidth}
                             />
                           </svg>
+                        ) : (
+                          markerText
                         )}
-                        {markerText === "△" && (
-                          <svg
-                            aria-hidden
-                            width={calendarDayMarkerSymbolSize}
-                            height={calendarDayMarkerSymbolSize}
-                            viewBox="0 0 16 16"
-                          >
-                            <polygon
-                              points="8,1.8 13,12.8 3,12.8"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth={calendarDayMarkerSymbolStrokeWidth}
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        )}
-                        {markerText !== "○" && markerText !== "△" && markerText}
                       </span>
                     </div>
                   );
@@ -520,6 +662,10 @@ export function ReserveForm({
             >
               <p>{infoInlineLead}</p>
               <p>{infoInlineMessage}</p>
+              <p>{RESERVATION_BUSINESS_HOURS_TEXT}</p>
+              <p>{RESERVATION_WEB_HOURS_TEXT}</p>
+              <p className="text-[#b32626]">定休日：{RESERVATION_CLOSED_TEXT}</p>
+              <p className="text-[#b32626]">{RESERVATION_CUTOFF_TEXT}</p>
             </div>
 
             <div
@@ -527,59 +673,43 @@ export function ReserveForm({
               style={{ columnGap: `${rightPanelPairGap}px`, rowGap: `${rightPanelPairGap}px` }}
             >
               <div className="grid" style={{ rowGap: `${fieldLabelGap}px` }}>
-                <Label htmlFor="party-top">人数</Label>
+                <Label htmlFor="time-top">来店時間</Label>
                 <select
-                  id="party-top"
-                  value={form.partySize}
-                  onChange={(e) => updateField("partySize", Number(e.target.value))}
+                  id="time-top"
+                  value={form.arrivalTime}
+                  onChange={(e) => updateField("arrivalTime", e.target.value)}
                   className="h-10 w-full rounded-md border border-black bg-white px-3 text-sm text-[#2f1b0f] focus:outline-none focus:ring-2 focus:ring-black/20"
                   style={{ borderRadius: `${formFieldRadius}px` }}
                   required
                 >
-                  {Array.from(
-                    { length: partyMax - partyMin + 1 },
-                    (_, i) => partyMin + i
-                  ).map((n) => (
-                    <option key={n} value={n}>
-                      {n}名
+                  {arrivalTimeOptions.map((time) => (
+                    <option key={time} value={time}>
+                      {serviceLabel} {time}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-[#6f5b46]">
+                  {serviceLabel}のWeb予約枠から選択してください。
+                </p>
+              </div>
+
+              <div className="grid" style={{ rowGap: `${fieldLabelGap}px` }}>
+                <Label htmlFor="course">コース</Label>
+                <select
+                  id="course"
+                  value={form.course}
+                  onChange={(e) => updateField("course", e.target.value)}
+                  className="h-10 w-full rounded-md border border-black bg-white px-3 text-sm text-[#2f1b0f] focus:outline-none focus:ring-2 focus:ring-black/20"
+                  style={{ borderRadius: `${formFieldRadius}px` }}
+                  required
+                >
+                  {courseOptions.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label}
                     </option>
                   ))}
                 </select>
               </div>
-              <div className="grid" style={{ rowGap: `${fieldLabelGap}px` }}>
-                <Label htmlFor="time-top">来店時間</Label>
-                <Input
-                  id="time-top"
-                  type="time"
-                  value={form.arrivalTime}
-                  onChange={(e) => updateField("arrivalTime", e.target.value)}
-                  min="17:30"
-                  className="border-black focus:ring-black/20 focus:border-black"
-                  style={{ borderRadius: `${formFieldRadius}px` }}
-                />
-              </div>
-            </div>
-
-            <div className="grid" style={{ rowGap: `${fieldLabelGap}px` }}>
-              <Label htmlFor="course">コース</Label>
-              <select
-                id="course"
-                value={form.course}
-                onChange={(e) => updateField("course", e.target.value)}
-                className="h-10 w-full rounded-md border border-black bg-white px-3 text-sm text-[#2f1b0f] focus:outline-none focus:ring-2 focus:ring-black/20"
-                style={{ borderRadius: `${formFieldRadius}px` }}
-                required
-              >
-                {courseOptions.map((group) => (
-                  <optgroup key={group.group} label={group.group}>
-                    {group.items.map((item) => (
-                      <option key={item.value} value={item.value}>
-                        {item.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
             </div>
 
             <div
@@ -636,13 +766,17 @@ export function ReserveForm({
         />
       </div>
 
+      {availability.reason === "PHONE_ONLY" ? (
+        <p className="rounded-md bg-[#fff7e6] px-4 py-3 text-sm text-[#8f2a2a]">
+          △ 電話のみ: この条件のご予約はWebで自動受付しません。店舗で確認しますので
+          {availability.callPhone} までお電話ください。
+        </p>
+      ) : null}
+
       <div className="mx-auto w-full max-w-[20.5rem] space-y-3 pt-2 md:mx-0 md:max-w-none">
         <div className="flex w-full flex-col items-start gap-y-0.5 text-[12px] leading-tight tracking-[-0.01em] text-[#4a3121] md:flex-row md:flex-wrap md:items-center md:justify-end md:gap-4 md:text-sm md:leading-normal md:tracking-normal">
           <p className="min-w-0 whitespace-nowrap">{cancelInlineMessage}</p>
-          <a
-            className="text-left underline md:whitespace-nowrap"
-            href={CONTACT_TEL_LINK}
-          >
+          <a className="text-left underline md:whitespace-nowrap" href={CONTACT_TEL_LINK}>
             {cancelInlinePhone}
           </a>
         </div>
@@ -654,11 +788,7 @@ export function ReserveForm({
               width: `${reserveButtonKnobWidth}px`,
               height: `${reserveButtonKnobHeight}px`,
             }}
-            disabled={
-              submitting ||
-              availability.reason === "SAME_DAY_BLOCKED" ||
-              availability.reason === "OUT_OF_RANGE"
-            }
+            disabled={submitting || availability.reason !== "OK"}
             aria-label={submitting ? "送信中..." : "予約する"}
           >
             <span

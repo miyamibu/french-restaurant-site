@@ -1,55 +1,69 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  getAllowedArrivalTimesForServicePeriod,
+  getDefaultArrivalTimeForCourse,
+  inferReservationServicePeriodFromCourse,
+  isArrivalTimeAllowed,
+} from "@/lib/booking-rules";
+import { formatJst } from "@/lib/dates";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-const courseOptions = [
-  {
-    label: "ランチ: プティラ Petite La course",
-    value: "ランチ: プティラ　Petite La course",
-  },
-  {
-    label: "ランチ: 席のみ",
-    value: "ランチ: 席のみ",
-  },
-  {
-    label: "ディナー: ジョワ Joie course",
-    value: "ディナー: ジョワ　Joie course",
-  },
-  {
-    label: "ディナー: サンキャトル Cent Quatre course",
-    value: "ディナー: サンキャトル　Cent Quatre course",
-  },
-  {
-    label: "ディナー: 席のみ",
-    value: "ディナー: 席のみ",
-  },
-];
-
-function toDateInputValue(date: Date) {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
+import {
+  getReservationCoursesForServicePeriod,
+  RESERVATION_CUTOFF_TEXT,
+  type ReservationServicePeriodKey,
+} from "@/lib/reservation-config";
+import { getNextBookableReservationDate } from "@/lib/booking-rules";
 
 function getDefaultDate() {
-  const nextDay = new Date();
-  nextDay.setDate(nextDay.getDate() + 1);
-  return toDateInputValue(nextDay);
+  return formatJst(getNextBookableReservationDate());
 }
 
 export function AgentReservationBuilder() {
   const [date, setDate] = useState(getDefaultDate);
   const [partySize, setPartySize] = useState("2");
-  const [arrivalTime, setArrivalTime] = useState("18:00");
-  const [course, setCourse] = useState(courseOptions[0].value);
+  const [servicePeriod, setServicePeriod] = useState<ReservationServicePeriodKey>("LUNCH");
+  const [course, setCourse] = useState<string>(() => {
+    const fallback = getReservationCoursesForServicePeriod("LUNCH")[0]?.value;
+    return fallback ?? "";
+  });
+  const [arrivalTime, setArrivalTime] = useState(() =>
+    getDefaultArrivalTimeForCourse(undefined, "LUNCH")
+  );
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
+
+  const courseOptions = useMemo(
+    () => getReservationCoursesForServicePeriod(servicePeriod),
+    [servicePeriod]
+  );
+  const arrivalTimeOptions = useMemo(
+    () => getAllowedArrivalTimesForServicePeriod(servicePeriod),
+    [servicePeriod]
+  );
+
+  useEffect(() => {
+    const nextCourse = courseOptions.some((option) => option.value === course)
+      ? course
+      : (courseOptions[0]?.value ?? "");
+    const nextArrivalTime = isArrivalTimeAllowed(arrivalTime, undefined, servicePeriod)
+      ? arrivalTime
+      : getDefaultArrivalTimeForCourse(undefined, servicePeriod);
+
+    if (nextCourse !== course) {
+      setCourse(nextCourse);
+    }
+
+    if (nextArrivalTime !== arrivalTime) {
+      setArrivalTime(nextArrivalTime);
+    }
+  }, [arrivalTime, course, courseOptions, servicePeriod]);
 
   const params = new URLSearchParams({
     mode: "agent",
     date,
+    servicePeriod,
     partySize,
     arrivalTime,
     course,
@@ -74,8 +88,9 @@ export function AgentReservationBuilder() {
       <p className="font-semibold text-[#2f1b0f]">Reservation handoff builder</p>
       <p className="mt-2 leading-6">
         Optional fallback for agents that want to hand the guest to `/booking` instead of calling
-        ` POST /api/reservations` directly. Keep personal data in the POST body, not in this URL.
+        `POST /api/reservations` directly. Keep personal data in the POST body, not in this URL.
       </p>
+      <p className="mt-2 text-xs leading-6 text-[#7b5a2d]">{RESERVATION_CUTOFF_TEXT}</p>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div className="grid gap-2">
@@ -87,6 +102,26 @@ export function AgentReservationBuilder() {
             onChange={(event) => setDate(event.target.value)}
             className="border-[#b9965a] bg-white"
           />
+        </div>
+
+        <div className="grid gap-2">
+          <Label htmlFor="agent-reservation-service-period">Service Period</Label>
+          <select
+            id="agent-reservation-service-period"
+            value={servicePeriod}
+            onChange={(event) => {
+              const next = event.target.value as ReservationServicePeriodKey;
+              setServicePeriod(next);
+              const nextCourse =
+                getReservationCoursesForServicePeriod(next)[0]?.value ?? course;
+              setCourse(nextCourse);
+              setArrivalTime(getDefaultArrivalTimeForCourse(undefined, next));
+            }}
+            className="h-10 rounded-md border border-[#b9965a] bg-white px-3 text-sm text-[#2f1b0f] focus:outline-none focus:ring-2 focus:ring-[#8a6233]/25"
+          >
+            <option value="LUNCH">LUNCH</option>
+            <option value="DINNER">DINNER</option>
+          </select>
         </div>
 
         <div className="grid gap-2">
@@ -107,13 +142,18 @@ export function AgentReservationBuilder() {
 
         <div className="grid gap-2">
           <Label htmlFor="agent-reservation-arrival-time">Arrival Time</Label>
-          <Input
+          <select
             id="agent-reservation-arrival-time"
-            type="time"
             value={arrivalTime}
             onChange={(event) => setArrivalTime(event.target.value)}
-            className="border-[#b9965a] bg-white"
-          />
+            className="h-10 rounded-md border border-[#b9965a] bg-white px-3 text-sm text-[#2f1b0f] focus:outline-none focus:ring-2 focus:ring-[#8a6233]/25"
+          >
+            {arrivalTimeOptions.map((time) => (
+              <option key={time} value={time}>
+                {time}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="grid gap-2 sm:col-span-2">
@@ -121,7 +161,14 @@ export function AgentReservationBuilder() {
           <select
             id="agent-reservation-course"
             value={course}
-            onChange={(event) => setCourse(event.target.value)}
+            onChange={(event) => {
+              const nextCourse = event.target.value;
+              setCourse(nextCourse);
+              const nextPeriod = inferReservationServicePeriodFromCourse(nextCourse);
+              if (nextPeriod && nextPeriod !== servicePeriod) {
+                setServicePeriod(nextPeriod);
+              }
+            }}
             className="h-10 rounded-md border border-[#b9965a] bg-white px-3 text-sm text-[#2f1b0f] focus:outline-none focus:ring-2 focus:ring-[#8a6233]/25"
           >
             {courseOptions.map((option) => (

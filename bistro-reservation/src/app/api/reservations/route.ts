@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma, ReservationStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { isArrivalTimeValid, MAIN_CAPACITY } from "@/lib/availability";
-import { jstDateFromString, isSameOrBeforeToday, isBeyondRange } from "@/lib/dates";
+import {
+  availabilityReasonToError,
+  isArrivalTimeValid,
+  isCoursePeriodConsistent,
+} from "@/lib/availability";
 import { sendReservationEmail } from "@/lib/email";
+import { buildReservationAdvisoryLockKey } from "@/lib/reservation-lock";
+import { evaluateReservationAvailability } from "@/lib/reservation-capacity";
 import { createReservationSchema, zodFields } from "@/lib/validation";
 import { apiError, enforceWriteRequestSecurity } from "@/lib/api-security";
 import { getContactPayload } from "@/lib/contact";
@@ -13,6 +18,18 @@ import { getRequestId, logError, logInfo } from "@/lib/logger";
 export const dynamic = "force-dynamic";
 
 const RETRIES = 3;
+
+async function acquireReservationAdvisoryLock(
+  tx: Prisma.TransactionClient,
+  date: string,
+  servicePeriod: string
+) {
+  const lockKey = buildReservationAdvisoryLockKey(date, servicePeriod);
+  await tx.$executeRawUnsafe(
+    "SELECT pg_advisory_xact_lock(hashtext($1))",
+    lockKey
+  );
+}
 
 export async function POST(request: NextRequest) {
   const requestId = getRequestId(request);
@@ -36,90 +53,106 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const { date, partySize, arrivalTime, name, phone, note, lineUserId, course } = parsed.data;
-  const reservationNote = [course ? `コース: ${course}` : null, note]
-    .filter(Boolean)
-    .join("\n") || null;
-  const partyCount = Number(partySize);
+  const {
+    date,
+    servicePeriod,
+    partySize,
+    arrivalTime,
+    name,
+    phone,
+    note,
+    lineUserId,
+    course,
+  } = parsed.data;
+  const reservationNote =
+    [course ? `コース: ${course}` : null, note].filter(Boolean).join("\n") || null;
 
-  let parsedDate: Date;
-  try {
-    parsedDate = jstDateFromString(date);
-  } catch {
+  if (!isArrivalTimeValid(arrivalTime, servicePeriod)) {
     return apiError(400, {
-      error: "日付形式が不正です",
-      code: "INVALID_DATE",
-      requestId,
-      ...contact,
-    });
-  }
-
-  if (isSameOrBeforeToday(parsedDate)) {
-    return apiError(400, {
-      error: "当日のオンライン予約は受け付けていません",
-      code: "SAME_DAY_BLOCKED",
-      requestId,
-      ...contact,
-    });
-  }
-
-  if (isBeyondRange(parsedDate)) {
-    return apiError(400, {
-      error: "予約可能期間外の日付です",
-      code: "OUT_OF_RANGE",
-      requestId,
-      ...contact,
-    });
-  }
-
-  if (!isArrivalTimeValid(arrivalTime)) {
-    return apiError(400, {
-      error: "来店時間が不正です",
+      error: "選択した時間帯の予約可能な来店時間を選択してください",
       code: "INVALID_ARRIVAL_TIME",
       requestId,
       ...contact,
     });
   }
 
-  for (let attempt = 1; attempt <= RETRIES; attempt++) {
+  if (!isCoursePeriodConsistent(course, servicePeriod)) {
+    return apiError(400, {
+      error: "コースの時間帯とご来店時間帯が一致していません",
+      code: "COURSE_TIME_MISMATCH",
+      requestId,
+      ...contact,
+    });
+  }
+
+  const initialBusinessDay = await prisma.businessDay.findUnique({ where: { date } });
+  const initialAvailability = evaluateReservationAvailability({
+    date,
+    servicePeriod,
+    partySize,
+    existingReservations: [],
+    businessDayClosed: initialBusinessDay?.isClosed,
+  });
+
+  if (initialAvailability.reason !== "OK" && initialAvailability.reason !== "PHONE_ONLY") {
+    const mapped = availabilityReasonToError(initialAvailability.reason);
+    return apiError(mapped.status, {
+      error: mapped.error,
+      code: mapped.code,
+      requestId,
+      ...contact,
+    });
+  }
+
+  if (initialAvailability.reason === "PHONE_ONLY") {
+    const mapped = availabilityReasonToError("PHONE_ONLY");
+    return apiError(mapped.status, {
+      error: mapped.error,
+      code: mapped.code,
+      requestId,
+      ...contact,
+    });
+  }
+
+  for (let attempt = 1; attempt <= RETRIES; attempt += 1) {
     try {
       const reservation = await prisma.$transaction(
         async (tx) => {
-          const businessDay = await tx.businessDay.findUnique({ where: { date } });
-          if (businessDay?.isClosed) {
-            throw new Error("CLOSED");
-          }
+          await acquireReservationAdvisoryLock(tx, date, servicePeriod);
 
+          const businessDay = await tx.businessDay.findUnique({ where: { date } });
           const confirmed = await tx.reservation.findMany({
-            where: { date, status: ReservationStatus.CONFIRMED },
+            where: {
+              date,
+              servicePeriod,
+              status: ReservationStatus.CONFIRMED,
+            },
+            select: {
+              partySize: true,
+              status: true,
+              servicePeriod: true,
+            },
           });
 
-          const total = confirmed.reduce((sum, r) => sum + r.partySize, 0);
-          const hasBanquet = confirmed.some((r) => r.partySize >= 10);
+          const availability = evaluateReservationAvailability({
+            date,
+            servicePeriod,
+            partySize,
+            existingReservations: confirmed,
+            businessDayClosed: businessDay?.isClosed,
+          });
 
-          if (hasBanquet) {
-            throw new Error("BANQUET_LOCKED");
+          if (availability.reason !== "OK") {
+            throw new Error(availability.reason);
           }
 
-          if (partyCount >= 10) {
-            if (confirmed.length > 0) {
-              throw new Error("BANQUET_NEEDS_EMPTY");
-            }
-            if (partyCount > MAIN_CAPACITY) {
-              throw new Error("MAIN_FULL");
-            }
-          } else {
-            if (total + partyCount > MAIN_CAPACITY) {
-              throw new Error("MAIN_FULL");
-            }
-          }
-
-          const created = await tx.reservation.create({
+          return tx.reservation.create({
             data: {
               date,
+              servicePeriod,
               seatType: "MAIN",
-              partySize: partyCount,
-              arrivalTime: arrivalTime ?? null,
+              partySize,
+              arrivalTime,
               name,
               phone,
               note: reservationNote,
@@ -127,8 +160,6 @@ export async function POST(request: NextRequest) {
               lineUserId: lineUserId ?? null,
             },
           });
-
-          return created;
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
       );
@@ -152,13 +183,14 @@ export async function POST(request: NextRequest) {
         context: {
           reservationId: reservation.id,
           date: reservation.date,
+          servicePeriod: reservation.servicePeriod,
           partySize: reservation.partySize,
         },
       });
 
       return NextResponse.json({
         reservationId: reservation.id,
-        summary: `${reservation.date} ${reservation.partySize}名で承りました。`,
+        summary: `${reservation.date} ${reservation.servicePeriod === "LUNCH" ? "ランチ" : "ディナー"} ${reservation.partySize}名で承りました。`,
         adminLink: adminLink || undefined,
         requestId,
       });
@@ -173,30 +205,45 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      let code = "RESERVATION_CONFLICT";
-      let errorMessage = "予約枠が埋まっています";
-      let status = 409;
+      const availabilityReasons = new Set([
+        "INVALID_DATE",
+        "BEFORE_OPENING",
+        "OUT_OF_RANGE",
+        "CLOSED",
+        "SAME_DAY_BLOCKED",
+        "CUTOFF_PASSED",
+        "PHONE_ONLY",
+      ]);
 
-      if (message.includes("CLOSED")) {
-        code = "CLOSED";
-        errorMessage = "休業日のため予約できません";
-      } else if (message.includes("MAIN_FULL")) {
-        code = "MAIN_FULL";
-        errorMessage = "満席のため予約できません";
-      } else if (message.includes("BANQUET_LOCKED") || message.includes("BANQUET_NEEDS_EMPTY")) {
-        code = "BANQUET_CONFLICT";
-        errorMessage = "貸切予約の都合で予約できません";
-      } else if (!isRetryable) {
-        code = "UNKNOWN_ERROR";
-        errorMessage = "予約処理に失敗しました";
-        status = 500;
+      if (availabilityReasons.has(message)) {
+        const mapped = availabilityReasonToError(
+          message as Parameters<typeof availabilityReasonToError>[0]
+        );
+        logError("reservation.create.failed", {
+          requestId,
+          route: "/api/reservations",
+          errorCode: mapped.code,
+          context: { attempt, message, date, servicePeriod, partySize },
+        });
+        return apiError(mapped.status, {
+          error: mapped.error,
+          code: mapped.code,
+          requestId,
+          ...contact,
+        });
       }
+
+      const status = isRetryable ? 409 : 500;
+      const code = isRetryable ? "RESERVATION_CONFLICT" : "UNKNOWN_ERROR";
+      const errorMessage = isRetryable
+        ? "予約処理が競合しました。時間をおいて再度お試しください。"
+        : "予約処理に失敗しました";
 
       logError("reservation.create.failed", {
         requestId,
         route: "/api/reservations",
         errorCode: code,
-        context: { attempt, message },
+        context: { attempt, message, date, servicePeriod, partySize },
       });
 
       return apiError(status, {

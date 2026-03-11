@@ -26,6 +26,7 @@ export default async function AdminReservationDetail({
       <h1 className="text-2xl font-semibold">予約詳細</h1>
       <div className="card p-6 space-y-2 text-sm">
         <p>日付: {reservation.date}</p>
+        <p>時間帯: {reservation.servicePeriod === "LUNCH" ? "ランチ" : "ディナー"}</p>
         <p>コース: {course ?? "-"}</p>
         <p>人数: {reservation.partySize}名</p>
         <p>来店目安: {reservation.arrivalTime ?? "未入力"}</p>

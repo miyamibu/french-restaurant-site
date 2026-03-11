@@ -1,123 +1,126 @@
-import { ReservationStatus } from "@prisma/client";
-import { jstDateFromString, isSameOrBeforeToday, isBeyondRange } from "@/lib/dates";
-import type { PrismaClient } from "@prisma/client";
+import { ReservationStatus, type PrismaClient } from "@prisma/client";
 import { getContactPayload } from "@/lib/contact";
+import {
+  isArrivalTimeAllowed,
+  isCourseServicePeriodConsistent,
+  canAcceptWebReservation,
+} from "@/lib/booking-rules";
+import { jstDateFromString } from "@/lib/dates";
+import type { ReservationServicePeriodKey } from "@/lib/reservation-config";
+import {
+  evaluateReservationAvailability,
+  type AvailabilityReason,
+  type AvailabilityResult,
+} from "@/lib/reservation-capacity";
 
-export type AvailabilityReason =
-  | "OK"
-  | "SAME_DAY_BLOCKED"
-  | "OUT_OF_RANGE"
-  | "CLOSED"
-  | "FULL"
-  | "INVALID_DATE";
-
-export interface AvailabilityResult {
-  bookable: boolean;
-  reason: AvailabilityReason;
-  mainRemaining: number;
-  room1Available: boolean;
-  room2Available: boolean;
+export type AvailabilityResponse = AvailabilityResult & {
   callPhone: string;
   callMessage: string;
-}
-
-export const MAIN_CAPACITY = 12;
-export const MIN_ARRIVAL_HOUR = 17;
-export const MIN_ARRIVAL_MINUTE = 30;
+};
 
 export async function getAvailability(
-  dateStr: string,
+  input: {
+    date: string;
+    servicePeriod: ReservationServicePeriodKey;
+    partySize: number;
+  },
   prisma: PrismaClient
-): Promise<AvailabilityResult> {
+): Promise<AvailabilityResponse> {
   const { callPhone, callMessage } = getContactPayload();
 
-  let parsed: Date;
-  try {
-    parsed = jstDateFromString(dateStr);
-  } catch {
-    return {
-      bookable: false,
-      reason: "INVALID_DATE",
-      mainRemaining: 0,
-      room1Available: false,
-      room2Available: false,
-      callPhone,
-      callMessage,
-    };
-  }
-
-  if (isSameOrBeforeToday(parsed)) {
-    return {
-      bookable: false,
-      reason: "SAME_DAY_BLOCKED",
-      mainRemaining: 0,
-      room1Available: false,
-      room2Available: false,
-      callPhone,
-      callMessage,
-    };
-  }
-
-  if (isBeyondRange(parsed)) {
-    return {
-      bookable: false,
-      reason: "OUT_OF_RANGE",
-      mainRemaining: 0,
-      room1Available: false,
-      room2Available: false,
-      callPhone,
-      callMessage,
-    };
-  }
-
-  const businessDay = await prisma.businessDay.findUnique({ where: { date: dateStr } });
-  if (businessDay?.isClosed) {
-    return {
-      bookable: false,
-      reason: "CLOSED",
-      mainRemaining: 0,
-      room1Available: false,
-      room2Available: false,
-      callPhone,
-      callMessage,
-    };
-  }
-
+  const businessDay = await prisma.businessDay.findUnique({
+    where: { date: input.date },
+  });
   const reservations = await prisma.reservation.findMany({
     where: {
-      date: dateStr,
+      date: input.date,
+      servicePeriod: input.servicePeriod,
       status: ReservationStatus.CONFIRMED,
+    },
+    select: {
+      partySize: true,
+      status: true,
+      servicePeriod: true,
     },
   });
 
-  const mainUsed = reservations.reduce((sum, r) => sum + r.partySize, 0);
-  const hasBanquet = reservations.some((r) => r.partySize >= 10);
-
-  const mainRemaining = Math.max(0, MAIN_CAPACITY - mainUsed);
-  const hasAny = !hasBanquet && mainRemaining > 0;
-
   return {
-    bookable: hasAny,
-    reason: hasAny ? "OK" : "FULL",
-    mainRemaining,
-    room1Available: false,
-    room2Available: false,
+    ...evaluateReservationAvailability({
+      ...input,
+      existingReservations: reservations,
+      businessDayClosed: businessDay?.isClosed,
+    }),
     callPhone,
     callMessage,
   };
 }
 
-export function isArrivalTimeValid(arrival?: string | null) {
-  if (!arrival) return true;
+export function isArrivalTimeValid(
+  arrival?: string | null,
+  servicePeriod?: ReservationServicePeriodKey | null
+) {
+  if (!arrival || !servicePeriod) return false;
+
   const [h, m] = arrival.split(":").map((n) => Number(n));
   if (Number.isNaN(h) || Number.isNaN(m)) return false;
   if (h > 23 || m > 59 || h < 0 || m < 0) return false;
-  if (h < MIN_ARRIVAL_HOUR) return false;
-  if (h === MIN_ARRIVAL_HOUR && m < MIN_ARRIVAL_MINUTE) return false;
-  return true;
+
+  return isArrivalTimeAllowed(arrival, undefined, servicePeriod);
 }
 
 export function isWithinAcceptance(dateStr: string) {
   const d = jstDateFromString(dateStr);
-  return !isSameOrBeforeToday(d) && !isBeyondRange(d);
+  return canAcceptWebReservation(d);
+}
+
+export function isCoursePeriodConsistent(
+  course?: string | null,
+  servicePeriod?: ReservationServicePeriodKey | null
+) {
+  return isCourseServicePeriodConsistent(course, servicePeriod);
+}
+
+export function availabilityReasonToError(reason: AvailabilityReason): {
+  status: number;
+  code: AvailabilityReason;
+  error: string;
+} {
+  switch (reason) {
+    case "INVALID_DATE":
+      return { status: 400, code: reason, error: "日付形式が不正です" };
+    case "BEFORE_OPENING":
+      return {
+        status: 400,
+        code: reason,
+        error: "2026-04-03より前のご予約は受け付けていません",
+      };
+    case "OUT_OF_RANGE":
+      return { status: 400, code: reason, error: "予約可能期間外の日付です" };
+    case "CLOSED":
+      return { status: 400, code: reason, error: "休業日のため予約できません" };
+    case "SAME_DAY_BLOCKED":
+      return {
+        status: 400,
+        code: reason,
+        error: "当日のオンライン予約は受け付けていません",
+      };
+    case "CUTOFF_PASSED":
+      return {
+        status: 400,
+        code: reason,
+        error: "Web予約は前日22:00で締め切りました。お電話でご相談ください。",
+      };
+    case "PHONE_ONLY":
+      return {
+        status: 409,
+        code: reason,
+        error: "この時間帯はWeb予約を停止しています。お電話でご相談ください。",
+      };
+    case "OK":
+      return {
+        status: 200,
+        code: reason,
+        error: "",
+      };
+  }
 }

@@ -13,11 +13,17 @@ Legacy alias:
 
 Reservation:
 - Direct completion: POST /api/reservations
-- Required JSON fields: date, partySize, name, phone
-- Optional JSON fields: arrivalTime, note, lineUserId, course
+- Required JSON fields: date, servicePeriod, partySize, arrivalTime, name, phone
+- Optional JSON fields: note, lineUserId, course
 - Required header: Content-Type: application/json
 - Optional header: X-Requested-With: XMLHttpRequest
-- Optional handoff review URL: /booking?mode=agent&date=YYYY-MM-DD&partySize=2&arrivalTime=18:00&course=...
+- Optional handoff review URL: /booking?mode=agent&date=YYYY-MM-DD&servicePeriod=LUNCH|DINNER&partySize=2&arrivalTime=18:00&course=...
+- servicePeriod must be LUNCH or DINNER and must match arrivalTime.
+- Web reservations close at 22:00 JST on the previous day.
+- Lunch web reservations accept 11:00-13:30. Dinner web reservations accept 17:30-20:00.
+- Availability APIs require servicePeriod and partySize.
+- Parties of 9 or more are phone-only.
+- Reservations are closed on Mondays and Tuesdays.
 
 Store:
 - Warm handoff only: /on-line-store/apron?mode=agent&qty=1

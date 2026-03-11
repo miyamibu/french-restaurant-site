@@ -1,13 +1,17 @@
 import { z } from "zod";
-import { dateStringSchema } from "@/lib/validation/common";
+import { RESERVATION_CONFIG } from "@/lib/reservation-config";
+import {
+  dateStringSchema,
+  reservationServicePeriodSchema,
+} from "@/lib/validation/common";
 
 export const createReservationSchema = z.object({
   date: dateStringSchema,
-  partySize: z.coerce.number().int().min(1).max(12),
+  servicePeriod: reservationServicePeriodSchema,
+  partySize: z.coerce.number().int().min(1).max(RESERVATION_CONFIG.maxPartySize),
   arrivalTime: z
     .string()
-    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "HH:mm形式で入力してください")
-    .optional(),
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "HH:mm形式で入力してください"),
   name: z.string().trim().min(1, "氏名は必須です").max(80),
   phone: z.string().trim().min(6, "電話番号は必須です").max(32),
   note: z.string().max(2000).optional(),

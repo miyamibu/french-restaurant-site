@@ -14,6 +14,9 @@ Legacy alias: /ai -> /agents
 Reservations may be completed directly through POST /api/reservations.
 Use /booking as an optional reservation handoff and /on-line-store/apron for store handoffs.
 Final store submission must be completed by a human.
+Web reservations require servicePeriod and arrivalTime, close at 22:00 JST on the previous day, and are limited to lunch 11:00-13:30 and dinner 17:30-20:00.
+Availability APIs require servicePeriod and partySize. Parties of 9 or more are phone-only.
+Reservations are closed on Mondays and Tuesdays.
 Do not put personal data in query strings.
 `;
 

@@ -50,10 +50,16 @@ export default function AgentsPage() {
                 {reservationEndpoint}
               </code>
               <ul className="mt-3 space-y-1 text-xs leading-6">
-                <li>Required JSON fields: `date`, `partySize`, `name`, `phone`</li>
-                <li>Optional: `arrivalTime`, `note`, `lineUserId`, `course`</li>
+                <li>Required JSON fields: `date`, `servicePeriod`, `partySize`, `arrivalTime`, `name`, `phone`</li>
+                <li>Optional: `note`, `lineUserId`, `course`</li>
                 <li>Required header: `Content-Type: application/json`</li>
                 <li>Optional header: `X-Requested-With: XMLHttpRequest`</li>
+                <li>`servicePeriod` must be `LUNCH` or `DINNER` and must match `arrivalTime`.</li>
+                <li>Closed weekdays: Monday and Tuesday</li>
+                <li>Lunch web reservations: 11:00-13:30 / Dinner: 17:30-20:00</li>
+                <li>Web booking cutoff: previous day 22:00 JST</li>
+                <li>Availability APIs require `servicePeriod` and `partySize`.</li>
+                <li>Parties of 9 or more are always phone-only.</li>
                 <li>Put course preference inside `course` or `note` when needed.</li>
               </ul>
             </div>

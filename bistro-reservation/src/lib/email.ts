@@ -33,6 +33,7 @@ export async function sendReservationEmail({ reservation, adminUrl }: Reservatio
   const subject = `【新規予約】${reservation.date} ${reservation.partySize}名`;
   const body = [
     `日付: ${reservation.date}`,
+    `時間帯: ${reservation.servicePeriod === "LUNCH" ? "ランチ" : "ディナー"}`,
     `コース: ${course ?? "未選択"}`,
     `人数: ${reservation.partySize}`,
     `来店目安: ${reservation.arrivalTime ?? "未入力"}`,

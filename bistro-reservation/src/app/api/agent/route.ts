@@ -21,11 +21,19 @@ export function GET(request: Request) {
     },
     reservation: {
       supports_direct_completion: true,
+      closed_weekdays: ["Monday", "Tuesday"],
       direct_completion: {
         method: "POST",
         endpoint: "/api/reservations",
-        required_fields: ["date", "partySize", "name", "phone"],
-        optional_fields: ["arrivalTime", "note", "lineUserId", "course"],
+        required_fields: [
+          "date",
+          "servicePeriod",
+          "partySize",
+          "arrivalTime",
+          "name",
+          "phone",
+        ],
+        optional_fields: ["note", "lineUserId", "course"],
         required_headers: {
           "Content-Type": "application/json",
         },
@@ -33,13 +41,19 @@ export function GET(request: Request) {
           "X-Requested-With": "XMLHttpRequest",
         },
         notes: [
+          "servicePeriod must be LUNCH or DINNER and must match arrivalTime.",
+          "Lunch web reservations accept 11:00-13:30 and dinner accepts 17:30-20:00.",
+          "Web reservations close at 22:00 JST on the previous day.",
+          "Availability APIs require date/month plus servicePeriod and partySize.",
+          "Parties of 9 or more are always phone-only.",
           "Put course preference inside course or note when needed.",
           "Send personal data in the JSON body, not in query strings.",
+          "Reservations are rejected on Mondays and Tuesdays.",
         ],
       },
       handoff: {
         template:
-          "/booking?mode=agent&date={YYYY-MM-DD}&partySize={1-12}&arrivalTime={HH:MM}&course={URL_ENCODED_COURSE}",
+          "/booking?mode=agent&date={YYYY-MM-DD}&servicePeriod={LUNCH|DINNER}&partySize={1-12}&arrivalTime={HH:MM}&course={URL_ENCODED_COURSE}",
         purpose: "Optional review bridge",
       },
     },
@@ -57,7 +71,7 @@ export function GET(request: Request) {
     ],
     compatibility: {
       reservation_handoff_template:
-        "/booking?mode=agent&date={YYYY-MM-DD}&partySize={1-12}&arrivalTime={HH:MM}&course={URL_ENCODED_COURSE}",
+        "/booking?mode=agent&date={YYYY-MM-DD}&servicePeriod={LUNCH|DINNER}&partySize={1-12}&arrivalTime={HH:MM}&course={URL_ENCODED_COURSE}",
       store_handoff_template: "/on-line-store/apron?mode=agent&qty={1-10}",
     },
   };

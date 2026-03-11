@@ -22,21 +22,27 @@ enum ReservationStatus {
   NOSHOW
 }
 
-model Reservation {
-  id         String             @id @default(cuid())
-  date       String
-  seatType   SeatType
-  partySize  Int
-  arrivalTime String?
-  name       String
-  phone      String
-  note       String?
-  status     ReservationStatus  @default(CONFIRMED)
-  lineUserId String?
-  createdAt  DateTime           @default(now())
-  updatedAt  DateTime           @updatedAt
+enum ServicePeriod {
+  LUNCH
+  DINNER
+}
 
-  @@index([date, seatType])
+model Reservation {
+  id            String             @id @default(cuid())
+  date          String
+  servicePeriod ServicePeriod
+  seatType      SeatType
+  partySize     Int
+  arrivalTime String?
+  name          String
+  phone         String
+  note          String?
+  status        ReservationStatus  @default(CONFIRMED)
+  lineUserId    String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([date, servicePeriod])
 }
 
 model BusinessDay {

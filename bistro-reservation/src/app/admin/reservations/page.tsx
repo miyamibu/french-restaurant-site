@@ -146,6 +146,7 @@ export default async function AdminReservations({
           <thead className="bg-gray-50 text-left text-sm text-gray-600">
             <tr>
               <th className="px-4 py-2">日付</th>
+              <th className="px-4 py-2">時間帯</th>
               <th className="px-4 py-2">来店目安</th>
               <th className="px-4 py-2">コース</th>
               <th className="px-4 py-2">人数</th>
@@ -160,6 +161,7 @@ export default async function AdminReservations({
               return (
                 <tr key={r.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2">{r.date}</td>
+                  <td className="px-4 py-2">{r.servicePeriod === "LUNCH" ? "ランチ" : "ディナー"}</td>
                   <td className="px-4 py-2">{r.arrivalTime ?? "-"}</td>
                   <td className="px-4 py-2">{course ?? "-"}</td>
                   <td className="px-4 py-2">{r.partySize}名</td>
@@ -173,7 +175,7 @@ export default async function AdminReservations({
             })}
             {reservations.length === 0 && (
               <tr>
-                <td className="px-4 py-2 h-14 text-center text-gray-500" colSpan={7}>
+                <td className="px-4 py-2 h-14 text-center text-gray-500" colSpan={8}>
                   {todayGroupCount > 0 ? (
                     <>
                       <p className="text-sm font-medium text-gray-700">

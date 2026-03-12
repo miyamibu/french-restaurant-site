@@ -705,7 +705,7 @@ export function ReserveForm({
               />
             </div>
 
-            <div className="hidden md:block">
+            <div className="hidden md:-mt-[1cm] md:block">
               <div className="space-y-3">
                 <div className="flex w-full flex-row flex-wrap items-center justify-end gap-4 text-sm text-[#4a3121]">
                   <p className="min-w-0 whitespace-nowrap">{cancelInlineMessage}</p>

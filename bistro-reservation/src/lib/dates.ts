@@ -3,6 +3,15 @@ import { RESERVATION_CONFIG } from "@/lib/reservation-config";
 
 export const JST_TZ = "Asia/Tokyo";
 export const MAX_MONTH_AHEAD = RESERVATION_CONFIG.bookingWindowMonths;
+const weekdayMap = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+} as const;
 
 function toJstDateString(date: Date): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -62,6 +71,15 @@ export function formatJst(date: Date): string {
   return toJstDateString(date);
 }
 
+export function getJstWeekday(date: Date): number {
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    timeZone: JST_TZ,
+    weekday: "short",
+  }).format(date) as keyof typeof weekdayMap;
+
+  return weekdayMap[weekday];
+}
+
 export function isSameOrBeforeToday(date: Date): boolean {
   const today = todayJst();
   return !isAfter(date, today);
@@ -83,7 +101,7 @@ export function isAfterOrSameOpeningDate(date: Date): boolean {
  * 営業日判定：木〜日は営業、月〜水は定休日
  */
 export function isBusinessDay(date: Date): boolean {
-  const dayOfWeek = date.getDay();
+  const dayOfWeek = getJstWeekday(date);
   // 0: 日(Sun), 1: 月(Mon), 2: 火(Tue), 3: 水(Wed), 4: 木(Thu), 5: 金(Fri), 6: 土(Sat)
   // Operate Thursday(4) to Sunday(0), closed Monday(1) to Wednesday(3)
   return dayOfWeek === 0 || dayOfWeek === 4 || dayOfWeek === 5 || dayOfWeek === 6;

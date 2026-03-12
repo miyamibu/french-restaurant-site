@@ -1,6 +1,7 @@
 import { addDays, startOfDay, subDays } from "date-fns";
 import {
   formatJst,
+  getJstWeekday,
   isAfterOrSameOpeningDate,
   isBeyondRange,
   isSameOrBeforeToday,
@@ -35,7 +36,7 @@ function minutesToTime(totalMinutes: number): string {
 }
 
 export function isClosedReservationWeekday(date: Date): boolean {
-  return closedWeekdaySet.has(date.getDay());
+  return closedWeekdaySet.has(getJstWeekday(date));
 }
 
 export function isClosedReservationDateBySchedule(date: Date): boolean {

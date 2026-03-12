@@ -498,6 +498,7 @@ export function ReserveForm({
                     isClosedReservationWeekday(cellDay) || daily?.reason === "CLOSED";
                   const isDateDisabled =
                     isSameOrPast ||
+                    isClosedDay ||
                     (daily != null && nonSelectableReasons.has(daily.reason));
 
                   let markerText = "";
@@ -724,7 +725,7 @@ export function ReserveForm({
         </p>
       ) : null}
 
-      <div className="mx-auto w-full max-w-[20.5rem] space-y-3 pt-2 md:mx-0 md:-mt-[1.2cm] md:max-w-none">
+      <div className="mx-auto w-full max-w-[20.5rem] space-y-3 pt-2 md:mx-0 md:-mt-[2.2cm] md:max-w-none">
         <div className="flex w-full flex-col items-start gap-y-0.5 text-[12px] leading-tight tracking-[-0.01em] text-[#4a3121] md:flex-row md:flex-wrap md:items-center md:justify-end md:gap-4 md:text-sm md:leading-normal md:tracking-normal">
           <p className="min-w-0 whitespace-nowrap">{cancelInlineMessage}</p>
           <a className="text-left underline md:whitespace-nowrap" href={CONTACT_TEL_LINK}>

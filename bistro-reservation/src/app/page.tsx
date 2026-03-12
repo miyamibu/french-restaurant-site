@@ -99,7 +99,7 @@ const MENU = {
     label: "ランチ",
     slides: [
       {
-        title: "北京じゃないよ 4品 3,800円",
+        title: "北京じゃないよ 3品 3,800円",
         subtitle: " プティラ Petite La course",
         description: `Amuse-bouches（2種）、Hors-d’œuvre ／ Entrée、${MOBILE_ONLY_BREAK_TOKEN}Poisson／Viande、Café`,
         anchor: "petite",
@@ -111,13 +111,13 @@ const MENU = {
     label: "ディナー",
     slides: [
       {
-        title: "実食！ ６品 5,000円",
+        title: "実食！ ５品 5,000円",
         subtitle: "ジョワ Joie course",
         description: "Amuse-bouches (3種)、Hors-d’œuvre、Entrée、Poisson／Viande、Riz、Dessert、Café",
         anchor: "joie",
       },
       {
-        title: "戸田市 ７品 8,000円",
+        title: "戸田市 ６品 8,000円",
         subtitle: "サンキャトル Cent Quatre course",
         description: "Amuse-bouches (3種)、Hors-d’œuvre、Entrée、Poisson、Viande、Riz、Dessert、Café",
         anchor: "cent-quatre",

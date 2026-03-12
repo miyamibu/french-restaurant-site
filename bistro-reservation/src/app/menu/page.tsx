@@ -85,11 +85,10 @@ const MOBILE_MENU_LAYOUT = {
   plusOffsetYPx: -1,
 };
 
-type MenuSection = "course" | "drink" | "a-la-carte" | "sweets";
+type MenuSection = "course" | "drink" | "sweets";
 
 const accordionSections: Array<{ key: MenuSection; label: string }> = [
   { key: "course", label: "コース" },
-  { key: "a-la-carte", label: "アラカルト" },
   { key: "sweets", label: "スイーツ" },
   { key: "drink", label: "ドリンク" },
 ];
@@ -136,11 +135,6 @@ const nonAlcoholMenu = {
   description:
     "ノンアルコールワイン、スパークリング、ソフトドリンクも充実しています。",
   photos: ["/photos/am.jpg", "/photos/mo.png"],
-};
-
-const aLaCarteMenu = {
-  title: "A la carte",
-  photos: ["/photos/料理/１.jpg", "/photos/料理/２.jpg", "/photos/料理/３.jpg", "/photos/料理/４.jpg"],
 };
 
 const sweetsMenu = {
@@ -503,35 +497,6 @@ export default function MenuPage() {
                                   </div>
                                 ))}
                               </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {section.key === "a-la-carte" && (
-                          <div className="space-y-6">
-                            <h3
-                              className={`menu-course-title font-semibold text-[#2f1b0f] ${tangerine.className}`}
-                              style={{
-                                    "--course-title-size": `${courseTitleSize.base}px`,
-                                    "--course-title-size-md": `${courseTitleSize.md}px`,
-                                  } as Record<string, string>}
-                            >
-                              {aLaCarteMenu.title}
-                            </h3>
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                              {aLaCarteMenu.photos.map((src, index) => (
-                                <div
-                                  key={`a-la-carte-${index}`}
-                                  className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-[#cfa96d]/40 bg-white shadow-sm"
-                                >
-                                  <Image
-                                    src={src}
-                                    alt={`A la carte ${index + 1}`}
-                                    fill
-                                    className="object-cover"
-                                  />
-                                </div>
-                              ))}
                             </div>
                           </div>
                         )}

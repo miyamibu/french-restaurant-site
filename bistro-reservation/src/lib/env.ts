@@ -31,10 +31,10 @@ const envSchema = z
     BANK_ACCOUNT_HISTORY_KEY_VERSION: z.coerce.number().int().positive().optional().default(1),
     CONTACT_PHONE_E164: z
       .preprocess(emptyToUndefined, z.string().regex(/^\+?[1-9]\d{7,14}$/).optional())
-      .default("+819098297614"),
+      .default("+81492706897"),
     CONTACT_PHONE_DISPLAY: z
       .preprocess(emptyToUndefined, z.string().min(1).optional())
-      .default("090-9829-7614"),
+      .default("049－270－6897"),
     CONTACT_MESSAGE: z
       .preprocess(emptyToUndefined, z.string().min(1).optional())
       .default("お電話でお問い合わせください"),

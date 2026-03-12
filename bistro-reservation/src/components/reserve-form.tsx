@@ -368,10 +368,8 @@ export function ReserveForm({
   const firstWeekday = getJstWeekday(monthStart);
   const calendarDayCircleSize = 28;
   const calendarDayCellWidth = 40;
-  const calendarDayMarkerNormalFontSize = 12;
-  const calendarDayCallMarkerFontSize = 9;
-  const calendarDayMarkerSymbolSize = 13;
-  const calendarDayMarkerSymbolStrokeWidth = 2.2;
+  const calendarDayMarkerNormalFontSize = 13;
+  const calendarDayCallMarkerFontSize = 13;
   const calendarDayMarkerNormalFontWeight = 900;
   const calendarDayCallMarkerFontWeight = 700;
   const calendarDayMarkerTopMargin = 8;
@@ -392,8 +390,7 @@ export function ReserveForm({
   const cancelInlinePhone = `電話番号：${CONTACT_PHONE_DISPLAY}`;
   const calendarDayMarkerHeight = Math.max(
     calendarDayMarkerNormalFontSize,
-    calendarDayCallMarkerFontSize,
-    calendarDayMarkerSymbolSize
+    calendarDayCallMarkerFontSize
   ) + 8;
   const calendarDayCellHeight =
     calendarDayCircleSize + calendarDayMarkerTopMargin + calendarDayMarkerHeight;
@@ -513,22 +510,21 @@ export function ReserveForm({
                   if (isClosedDay) {
                     markerText = "休";
                   } else if (daily?.reason === "PHONE_ONLY") {
-                    markerText = "電話のみ";
+                    markerText = "△";
                   } else if (daily?.webBookable) {
                     markerText = "○";
                   }
 
                   const markerFontSize =
-                    markerText === "電話のみ"
+                    markerText === "△"
                       ? calendarDayCallMarkerFontSize
                       : calendarDayMarkerNormalFontSize;
                   const markerFontWeight =
-                    markerText === "電話のみ"
+                    markerText === "△"
                       ? calendarDayCallMarkerFontWeight
                       : calendarDayMarkerNormalFontWeight;
                   const markerColor =
-                    markerText === "電話のみ" || markerText === "休" ? "#b32626" : "#c7a357";
-                  const markerIsSymbol = markerText === "○";
+                    markerText === "△" || markerText === "休" ? "#b32626" : "#c7a357";
 
                   return (
                     <div
@@ -569,32 +565,12 @@ export function ReserveForm({
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          fontSize: markerIsSymbol ? undefined : `${markerFontSize}px`,
-                          fontWeight: markerIsSymbol ? undefined : markerFontWeight,
-                          lineHeight: markerIsSymbol
-                            ? undefined
-                            : `${calendarDayMarkerHeight}px`,
+                          fontSize: `${markerFontSize}px`,
+                          fontWeight: markerFontWeight,
+                          lineHeight: `${calendarDayMarkerHeight}px`,
                         }}
                       >
-                        {markerText === "○" ? (
-                          <svg
-                            aria-hidden
-                            width={calendarDayMarkerSymbolSize}
-                            height={calendarDayMarkerSymbolSize}
-                            viewBox="0 0 16 16"
-                          >
-                            <circle
-                              cx="8"
-                              cy="8"
-                              r="5.8"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth={calendarDayMarkerSymbolStrokeWidth}
-                            />
-                          </svg>
-                        ) : (
-                          markerText
-                        )}
+                        {markerText}
                       </span>
                     </div>
                   );
@@ -733,7 +709,7 @@ export function ReserveForm({
         </p>
       ) : null}
 
-      <div className="mx-auto w-full max-w-[20.5rem] space-y-3 pt-2 md:mx-0 md:-mt-[3.2cm] md:max-w-none">
+      <div className="mx-auto w-full max-w-[20.5rem] space-y-3 pt-2 md:mx-0 md:-mt-[4.2cm] md:max-w-none">
         <div className="flex w-full flex-col items-start gap-y-0.5 text-[12px] leading-tight tracking-[-0.01em] text-[#4a3121] md:flex-row md:flex-wrap md:items-center md:justify-end md:gap-4 md:text-sm md:leading-normal md:tracking-normal">
           <p className="min-w-0 whitespace-nowrap">{cancelInlineMessage}</p>
           <a className="text-left underline md:whitespace-nowrap" href={CONTACT_TEL_LINK}>
@@ -743,7 +719,7 @@ export function ReserveForm({
         <div className="flex w-full justify-end">
           <button
             type="submit"
-            className="relative inline-flex shrink-0 translate-y-[-0.5cm] items-center justify-center rounded-full border-0 bg-transparent p-0 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7a5a31]/35 disabled:cursor-not-allowed disabled:opacity-50 md:translate-y-[0.5cm]"
+            className="relative inline-flex shrink-0 translate-y-[-0.5cm] items-center justify-center rounded-full border-0 bg-transparent p-0 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7a5a31]/35 disabled:cursor-not-allowed disabled:opacity-50 md:-translate-y-[0.4cm]"
             style={{
               width: `${reserveButtonKnobWidth}px`,
               height: `${reserveButtonKnobHeight}px`,

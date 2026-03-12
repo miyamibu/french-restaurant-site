@@ -1,4 +1,4 @@
-import { addMonths, isAfter, isBefore, startOfDay } from "date-fns";
+import { addMonths, isAfter, isBefore } from "date-fns";
 import { RESERVATION_CONFIG } from "@/lib/reservation-config";
 
 export const JST_TZ = "Asia/Tokyo";
@@ -12,6 +12,10 @@ const weekdayMap = {
   Fri: 5,
   Sat: 6,
 } as const;
+
+function padNumber(value: number): string {
+  return String(value).padStart(2, "0");
+}
 
 function toJstDateString(date: Date): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -60,7 +64,7 @@ export function nowJst(): Date {
 }
 
 export function jstDateFromString(date: string): Date {
-  return startOfDay(new Date(`${date}T00:00:00+09:00`));
+  return new Date(`${date}T12:00:00+09:00`);
 }
 
 export function jstDateTimeFromString(date: string, time: string): Date {
@@ -69,6 +73,49 @@ export function jstDateTimeFromString(date: string, time: string): Date {
 
 export function formatJst(date: Date): string {
   return toJstDateString(date);
+}
+
+export function startOfJstMonth(date: Date): Date {
+  const { year, month } = getJstDateTimeParts(date);
+  return jstDateFromString(`${year}-${month}-01`);
+}
+
+export function getDaysInJstMonth(date: Date): number {
+  const { year, month } = getJstDateTimeParts(date);
+  return new Date(Number(year), Number(month), 0).getDate();
+}
+
+export function getJstDayOfMonth(date: Date): number {
+  const { day } = getJstDateTimeParts(date);
+  return Number(day);
+}
+
+export function addJstMonths(date: Date, amount: number): Date {
+  return startOfJstMonth(addMonths(date, amount));
+}
+
+export function formatJstMonth(date: Date): string {
+  const { year, month } = getJstDateTimeParts(date);
+  return `${year}年${Number(month)}月`;
+}
+
+export function formatJstMonthDay(date: Date): string {
+  const { month, day } = getJstDateTimeParts(date);
+  return `${Number(month)}月${Number(day)}日`;
+}
+
+export function getJstMonthKey(date: Date): string {
+  const { year, month } = getJstDateTimeParts(date);
+  return `${year}-${month}`;
+}
+
+export function getJstDateKey(year: number, month: number, day: number): string {
+  return `${year}-${padNumber(month)}-${padNumber(day)}`;
+}
+
+export function getJstYearMonthParts(date: Date): { year: number; month: number } {
+  const { year, month } = getJstDateTimeParts(date);
+  return { year: Number(year), month: Number(month) };
 }
 
 export function getJstWeekday(date: Date): number {

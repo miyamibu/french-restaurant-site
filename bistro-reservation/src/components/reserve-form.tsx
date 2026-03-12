@@ -2,17 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  addMonths,
-  format,
-  getDate,
-  getDay,
-  getDaysInMonth,
-  parseISO,
-  startOfDay,
-  startOfMonth,
-  subMonths,
-} from "date-fns";
-import {
   getDefaultArrivalTimeForCourse,
   getReservationSlotGroups,
   inferReservationServicePeriodFromArrivalTime,
@@ -27,6 +16,20 @@ import {
   RESERVATION_CONFIG,
   type ReservationServicePeriodKey,
 } from "@/lib/reservation-config";
+import {
+  addJstMonths,
+  formatJstMonth,
+  formatJstMonthDay,
+  getDaysInJstMonth,
+  getJstDateKey,
+  getJstDayOfMonth,
+  getJstMonthKey,
+  getJstWeekday,
+  getJstYearMonthParts,
+  jstDateFromString,
+  startOfJstMonth,
+  todayJst,
+} from "@/lib/dates";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -67,8 +70,12 @@ const nonSelectableReasons = new Set([
 
 function sanitizeDate(value: string | undefined, fallback: string) {
   const normalized = normalizeReservationDateInput(value, fallback);
-  const parsed = parseISO(normalized);
-  return Number.isNaN(parsed.getTime()) ? fallback : normalized;
+  try {
+    const parsed = jstDateFromString(normalized);
+    return Number.isNaN(parsed.getTime()) ? fallback : normalized;
+  } catch {
+    return fallback;
+  }
 }
 
 function sanitizePartySize(value: string | undefined) {
@@ -157,14 +164,14 @@ export function ReserveForm({
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [calendarMonth, setCalendarMonth] = useState<Date>(() =>
-    startOfMonth(parseISO(defaultDate))
+    startOfJstMonth(jstDateFromString(defaultDate))
   );
   const [monthlyAvailability, setMonthlyAvailability] = useState<MonthlyAvailabilityMap>({});
 
   const partyMin = 1;
   const partyMax = RESERVATION_CONFIG.maxPartySize;
-  const selectedDate = useMemo(() => parseISO(form.date), [form.date]);
-  const today = useMemo(() => startOfDay(new Date()), []);
+  const selectedDate = useMemo(() => jstDateFromString(form.date), [form.date]);
+  const today = useMemo(() => todayJst(), []);
   const currentServicePeriod = useMemo(
     () =>
       inferReservationServicePeriodFromArrivalTime(form.arrivalTime) ??
@@ -214,7 +221,7 @@ export function ReserveForm({
     partySize: number
   ) {
     const params = new URLSearchParams({
-      month: format(startOfMonth(monthStartDate), "yyyy-MM"),
+      month: getJstMonthKey(startOfJstMonth(monthStartDate)),
       servicePeriod,
       partySize: String(partySize),
     });
@@ -230,7 +237,7 @@ export function ReserveForm({
 
   useEffect(() => {
     if (!Number.isNaN(selectedDate.getTime())) {
-      setCalendarMonth(startOfMonth(selectedDate));
+      setCalendarMonth(startOfJstMonth(selectedDate));
     }
   }, [selectedDate]);
 
@@ -356,9 +363,9 @@ export function ReserveForm({
     }
   }
 
-  const monthStart = startOfMonth(calendarMonth);
-  const monthDays = getDaysInMonth(monthStart);
-  const firstWeekday = getDay(monthStart);
+  const monthStart = startOfJstMonth(calendarMonth);
+  const monthDays = getDaysInJstMonth(monthStart);
+  const firstWeekday = getJstWeekday(monthStart);
   const calendarDayCircleSize = 28;
   const calendarDayCellWidth = 40;
   const calendarDayMarkerNormalFontSize = 12;
@@ -393,8 +400,9 @@ export function ReserveForm({
   const calendarCells = [
     ...Array.from({ length: firstWeekday }, () => null),
     ...Array.from({ length: monthDays }, (_, idx) => {
-      const dateObj = new Date(monthStart.getFullYear(), monthStart.getMonth(), idx + 1);
-      const value = format(dateObj, "yyyy-MM-dd");
+      const { year, month } = getJstYearMonthParts(monthStart);
+      const value = getJstDateKey(year, month, idx + 1);
+      const dateObj = jstDateFromString(value);
       return { value, dateObj };
     }),
   ];
@@ -422,7 +430,7 @@ export function ReserveForm({
               <div className="mb-2 flex items-center justify-between">
                 <button
                   type="button"
-                  onClick={() => setCalendarMonth((prev) => subMonths(prev, 1))}
+                  onClick={() => setCalendarMonth((prev) => addJstMonths(prev, -1))}
                   className="rounded-md border-0 text-[#4a3121] leading-none hover:bg-[#f8f2e6]"
                   style={{
                     width: `${calendarMonthNavButtonSize}px`,
@@ -436,11 +444,11 @@ export function ReserveForm({
                   ‹
                 </button>
                 <p className="text-base font-semibold text-[#2f1b0f]">
-                  {format(monthStart, "yyyy年M月")}
+                  {formatJstMonth(monthStart)}
                 </p>
                 <button
                   type="button"
-                  onClick={() => setCalendarMonth((prev) => addMonths(prev, 1))}
+                  onClick={() => setCalendarMonth((prev) => addJstMonths(prev, 1))}
                   className="rounded-md border-0 text-[#4a3121] leading-none hover:bg-[#f8f2e6]"
                   style={{
                     width: `${calendarMonthNavButtonSize}px`,
@@ -491,7 +499,7 @@ export function ReserveForm({
                   }
 
                   const isSelected = cell.value === form.date;
-                  const cellDay = startOfDay(cell.dateObj);
+                  const cellDay = cell.dateObj;
                   const isSameOrPast = cellDay.getTime() <= today.getTime();
                   const daily = monthlyAvailability[cell.value];
                   const isClosedDay =
@@ -548,9 +556,9 @@ export function ReserveForm({
                           width: `${calendarDayCircleSize}px`,
                           height: `${calendarDayCircleSize}px`,
                         }}
-                        aria-label={`${format(cell.dateObj, "M月d日")}`}
+                        aria-label={formatJstMonthDay(cell.dateObj)}
                       >
-                        {getDate(cell.dateObj)}
+                        {getJstDayOfMonth(cell.dateObj)}
                       </button>
                       <span
                         className="block w-full select-none text-center"
@@ -725,7 +733,7 @@ export function ReserveForm({
         </p>
       ) : null}
 
-      <div className="mx-auto w-full max-w-[20.5rem] space-y-3 pt-2 md:mx-0 md:-mt-[2.2cm] md:max-w-none">
+      <div className="mx-auto w-full max-w-[20.5rem] space-y-3 pt-2 md:mx-0 md:-mt-[3.2cm] md:max-w-none">
         <div className="flex w-full flex-col items-start gap-y-0.5 text-[12px] leading-tight tracking-[-0.01em] text-[#4a3121] md:flex-row md:flex-wrap md:items-center md:justify-end md:gap-4 md:text-sm md:leading-normal md:tracking-normal">
           <p className="min-w-0 whitespace-nowrap">{cancelInlineMessage}</p>
           <a className="text-left underline md:whitespace-nowrap" href={CONTACT_TEL_LINK}>

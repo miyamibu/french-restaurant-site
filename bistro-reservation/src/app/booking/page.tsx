@@ -26,7 +26,7 @@ export default async function ReservePage({ searchParams }: { searchParams?: Sea
 
   return (
     <div
-      className="space-y-6 pb-1 pt-[var(--reserve-top-mobile)] md:pb-20 md:pt-[var(--reserve-top-desktop)]"
+      className="space-y-6 pb-0 pt-[var(--reserve-top-mobile)] md:pb-6 md:pt-[var(--reserve-top-desktop)]"
       style={{
         "--reserve-top-mobile": `${reservePageSpacing.topMobile}px`,
         "--reserve-top-desktop": `${reservePageSpacing.topDesktop}px`,

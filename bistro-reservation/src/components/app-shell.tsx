@@ -1,28 +1,35 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { TopNav } from "@/components/top-nav";
+import { CONTACT_PHONE_DISPLAY, CONTACT_TEL_LINK } from "@/lib/contact";
+import { RESERVATION_POLICY_LINES } from "@/lib/reservation-copy";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isOrdersDashboard = pathname === "/dashboard/orders";
   const hideTopNav = isOrdersDashboard || pathname === "/admin/reservations";
+  const isBookingRoute = pathname === "/booking" || pathname.startsWith("/booking/");
   const showMobileHeaderGoldBand = pathname === "/";
   // Public-facing pages manage their own top spacing and should sit under the fixed header.
   const isPublicWebRoute =
     pathname === "/" ||
-    pathname === "/booking" ||
-    pathname.startsWith("/booking/") ||
+    isBookingRoute ||
     pathname === "/menu" ||
     pathname.startsWith("/menu/") ||
     pathname === "/picture" ||
     pathname.startsWith("/picture/") ||
     pathname === "/contact" ||
     pathname.startsWith("/contact/") ||
+    pathname === "/faq" ||
+    pathname.startsWith("/faq/") ||
     pathname === "/access" ||
     pathname.startsWith("/access/") ||
     pathname === "/on-line-store" ||
     pathname.startsWith("/on-line-store/");
+
+  const showFooter = !hideTopNav && !isBookingRoute;
 
   return (
     <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col bg-white px-4 py-0 [--header-h:58px] md:[--header-h:92px]">
@@ -51,6 +58,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         className={
           isOrdersDashboard
             ? "flex-1 pt-10"
+            : isBookingRoute
+              ? "pt-[var(--header-h)] md:pt-0"
             : hideTopNav || isPublicWebRoute
               ? "flex-1 pt-[var(--header-h)] md:pt-0"
               : "flex-1 pt-[var(--header-h)]"
@@ -58,6 +67,42 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         {children}
       </main>
+      {showFooter ? (
+        <footer className="mt-12 border-t border-[#cfa96d]/30 px-1 py-8 text-sm text-[#4a3121]">
+          <div className={`grid gap-6 ${isBookingRoute ? "" : "md:grid-cols-[1.4fr_0.6fr]"}`}>
+            {isBookingRoute ? null : (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#8a6233]">
+                  Reservation Policy
+                </p>
+                {RESERVATION_POLICY_LINES.map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
+              </div>
+            )}
+            <div className={`space-y-2 ${isBookingRoute ? "hidden" : ""}`}>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#8a6233]">
+                Links
+              </p>
+              <p>
+                <Link className="underline" href="/access">
+                  店舗情報
+                </Link>
+              </p>
+              <p>
+                <Link className="underline" href="/faq">
+                  FAQ
+                </Link>
+              </p>
+              <p>
+                <a className="underline" href={CONTACT_TEL_LINK}>
+                  お電話: {CONTACT_PHONE_DISPLAY}
+                </a>
+              </p>
+            </div>
+          </div>
+        </footer>
+      ) : null}
     </div>
   );
 }

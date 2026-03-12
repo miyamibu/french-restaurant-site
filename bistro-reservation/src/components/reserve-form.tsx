@@ -12,11 +12,9 @@ import {
   startOfMonth,
   subMonths,
 } from "date-fns";
-import { ja } from "date-fns/locale";
 import {
-  getAllowedArrivalTimesForServicePeriod,
   getDefaultArrivalTimeForCourse,
-  getReservationServiceLabel,
+  getReservationSlotGroups,
   inferReservationServicePeriodFromArrivalTime,
   inferReservationServicePeriodFromCourse,
   isArrivalTimeAllowed,
@@ -26,11 +24,7 @@ import {
 import { CONTACT_PHONE_DISPLAY, CONTACT_MESSAGE, CONTACT_TEL_LINK } from "@/lib/contact";
 import {
   getReservationCoursesForServicePeriod,
-  RESERVATION_BUSINESS_HOURS_TEXT,
-  RESERVATION_CLOSED_TEXT,
   RESERVATION_CONFIG,
-  RESERVATION_CUTOFF_TEXT,
-  RESERVATION_WEB_HOURS_TEXT,
   type ReservationServicePeriodKey,
 } from "@/lib/reservation-config";
 import { Input } from "@/components/ui/input";
@@ -88,15 +82,21 @@ function sanitizeServicePeriod(
   course?: string,
   arrivalTime?: string
 ): ReservationServicePeriodKey {
+  const inferredFromArrivalTime = inferReservationServicePeriodFromArrivalTime(arrivalTime);
+  if (inferredFromArrivalTime) {
+    return inferredFromArrivalTime;
+  }
+
+  const inferredFromCourse = inferReservationServicePeriodFromCourse(course);
+  if (inferredFromCourse) {
+    return inferredFromCourse;
+  }
+
   if (value === "LUNCH" || value === "DINNER") {
     return value;
   }
 
-  return (
-    inferReservationServicePeriodFromCourse(course) ??
-    inferReservationServicePeriodFromArrivalTime(arrivalTime) ??
-    "LUNCH"
-  );
+  return "LUNCH";
 }
 
 function sanitizeCourse(
@@ -144,7 +144,6 @@ export function ReserveForm({
 
   const [form, setForm] = useState({
     date: sanitizeDate(initialDate, defaultDate),
-    servicePeriod: selectedInitialServicePeriod,
     partySize: sanitizePartySize(initialPartySize),
     course: selectedInitialCourse,
     arrivalTime: selectedInitialArrivalTime,
@@ -166,17 +165,26 @@ export function ReserveForm({
   const partyMax = RESERVATION_CONFIG.maxPartySize;
   const selectedDate = useMemo(() => parseISO(form.date), [form.date]);
   const today = useMemo(() => startOfDay(new Date()), []);
+  const currentServicePeriod = useMemo(
+    () =>
+      inferReservationServicePeriodFromArrivalTime(form.arrivalTime) ??
+      inferReservationServicePeriodFromCourse(form.course) ??
+      selectedInitialServicePeriod,
+    [form.arrivalTime, form.course, selectedInitialServicePeriod]
+  );
   const courseOptions = useMemo(
-    () => getReservationCoursesForServicePeriod(form.servicePeriod),
-    [form.servicePeriod]
+    () => getReservationCoursesForServicePeriod(currentServicePeriod),
+    [currentServicePeriod]
   );
   const arrivalTimeOptions = useMemo(
-    () => getAllowedArrivalTimesForServicePeriod(form.servicePeriod),
-    [form.servicePeriod]
-  );
-  const serviceLabel = useMemo(
-    () => getReservationServiceLabel(undefined, form.servicePeriod),
-    [form.servicePeriod]
+    () =>
+      getReservationSlotGroups().flatMap((group) =>
+        group.slots.map((time) => ({
+          value: time,
+          label: `${group.label} ${time}`,
+        }))
+      ),
+    []
   );
   const dayLabels = ["日", "月", "火", "水", "木", "金", "土"] as const;
 
@@ -231,9 +239,9 @@ export function ReserveForm({
     const nextCourse = courseOptions.some((option) => option.value === form.course)
       ? form.course
       : fallbackCourse;
-    const nextArrivalTime = isArrivalTimeAllowed(form.arrivalTime, undefined, form.servicePeriod)
+    const nextArrivalTime = isArrivalTimeAllowed(form.arrivalTime, undefined, currentServicePeriod)
       ? form.arrivalTime
-      : getDefaultArrivalTimeForCourse(undefined, form.servicePeriod);
+      : getDefaultArrivalTimeForCourse(undefined, currentServicePeriod);
 
     if (nextCourse === form.course && nextArrivalTime === form.arrivalTime) {
       return;
@@ -244,13 +252,13 @@ export function ReserveForm({
       course: nextCourse,
       arrivalTime: nextArrivalTime,
     }));
-  }, [courseOptions, form.arrivalTime, form.course, form.servicePeriod]);
+  }, [courseOptions, currentServicePeriod, form.arrivalTime, form.course]);
 
   useEffect(() => {
     let active = true;
     setAvailability((prev) => ({ ...prev, reason: "CHECKING" }));
 
-    loadDailyAvailability(form.date, form.servicePeriod, form.partySize)
+    loadDailyAvailability(form.date, currentServicePeriod, form.partySize)
       .then((data) => {
         if (!active) return;
         setAvailability(data);
@@ -263,12 +271,12 @@ export function ReserveForm({
     return () => {
       active = false;
     };
-  }, [form.date, form.partySize, form.servicePeriod]);
+  }, [currentServicePeriod, form.date, form.partySize]);
 
   useEffect(() => {
     let active = true;
 
-    loadMonthlyAvailability(calendarMonth, form.servicePeriod, form.partySize)
+    loadMonthlyAvailability(calendarMonth, currentServicePeriod, form.partySize)
       .then((days) => {
         if (!active) return;
         setMonthlyAvailability(days);
@@ -281,7 +289,7 @@ export function ReserveForm({
     return () => {
       active = false;
     };
-  }, [calendarMonth, form.partySize, form.servicePeriod]);
+  }, [calendarMonth, currentServicePeriod, form.partySize]);
 
   function updateField<T extends keyof typeof form>(key: T, value: (typeof form)[T]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -309,7 +317,7 @@ export function ReserveForm({
         },
         body: JSON.stringify({
           date: form.date,
-          servicePeriod: form.servicePeriod,
+          servicePeriod: currentServicePeriod,
           course: form.course,
           phone: form.phone,
           name: fullName,
@@ -324,10 +332,10 @@ export function ReserveForm({
       if (res.ok) {
         setResult(data.summary ?? "ご予約を受け付けました。");
         const [nextDaily, nextMonthly] = await Promise.all([
-          loadDailyAvailability(form.date, form.servicePeriod, form.partySize).catch(
+          loadDailyAvailability(form.date, currentServicePeriod, form.partySize).catch(
             () => initialAvailability
           ),
-          loadMonthlyAvailability(calendarMonth, form.servicePeriod, form.partySize).catch(
+          loadMonthlyAvailability(calendarMonth, currentServicePeriod, form.partySize).catch(
             () => monthlyAvailability
           ),
         ]);
@@ -373,9 +381,6 @@ export function ReserveForm({
   const rightPanelSectionGap = 50;
   const rightPanelPairGap = 12;
   const fieldLabelGap = 6;
-  const infoInlineFontSize = 13;
-  const infoInlineLead = "時間帯と人数を先に選ぶと、その条件で予約可否を表示します。";
-  const infoInlineMessage = "9名以上、または満席に近い枠は自動受付せず、お電話でご相談いただく運用です。";
   const cancelInlineMessage = "キャンセルはお電話にてお願いいたします。";
   const cancelInlinePhone = `電話番号：${CONTACT_PHONE_DISPLAY}`;
   const calendarDayMarkerHeight = Math.max(
@@ -393,19 +398,6 @@ export function ReserveForm({
       return { value, dateObj };
     }),
   ];
-  const servicePeriodOptions: Array<{
-    value: ReservationServicePeriodKey;
-    label: string;
-  }> = [
-    { value: "LUNCH", label: "ランチ" },
-    { value: "DINNER", label: "ディナー" },
-  ];
-  const availabilitySummary =
-    availability.reason === "PHONE_ONLY"
-      ? "△ 電話のみ"
-      : availability.webBookable
-        ? "○"
-        : "";
 
   return (
     <form onSubmit={submit} className="rounded-xl bg-white p-6 space-y-4">
@@ -418,62 +410,12 @@ export function ReserveForm({
       ) : null}
 
       <section className="space-y-4 px-0 py-2 md:p-4">
-        <div
-          className="grid sm:grid-cols-2"
-          style={{ columnGap: `${rightPanelPairGap}px`, rowGap: `${rightPanelPairGap}px` }}
-        >
-          <div className="grid" style={{ rowGap: `${fieldLabelGap}px` }}>
-            <Label htmlFor="service-period">時間帯</Label>
-            <select
-              id="service-period"
-              value={form.servicePeriod}
-              onChange={(e) =>
-                updateField("servicePeriod", e.target.value as ReservationServicePeriodKey)
-              }
-              className="h-10 w-full rounded-md border border-black bg-white px-3 text-sm text-[#2f1b0f] focus:outline-none focus:ring-2 focus:ring-black/20"
-              style={{ borderRadius: `${formFieldRadius}px` }}
-              required
-            >
-              {servicePeriodOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="grid" style={{ rowGap: `${fieldLabelGap}px` }}>
-            <Label htmlFor="party-size">人数</Label>
-            <select
-              id="party-size"
-              value={form.partySize}
-              onChange={(e) => updateField("partySize", Number(e.target.value))}
-              className="h-10 w-full rounded-md border border-black bg-white px-3 text-sm text-[#2f1b0f] focus:outline-none focus:ring-2 focus:ring-black/20"
-              style={{ borderRadius: `${formFieldRadius}px` }}
-              required
-            >
-              {Array.from({ length: partyMax - partyMin + 1 }, (_, i) => partyMin + i).map(
-                (n) => (
-                  <option key={n} value={n}>
-                    {n}名
-                  </option>
-                )
-              )}
-            </select>
-          </div>
-        </div>
-
         <div className="grid gap-6 md:grid-cols-[auto,minmax(0,1fr)] md:items-stretch">
           <div
             className="mx-auto mt-[-0.5cm] w-full max-w-[20.5rem] space-y-4 md:mx-0 md:mt-0 md:max-w-none"
           >
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
               <p className="text-sm font-semibold text-[#2f1b0f]">来店日</p>
-              <div className="rounded-md border-0 bg-white px-3 py-2 text-right text-sm text-[#2f1b0f]">
-                <div>{format(selectedDate, "M月d日（E）", { locale: ja })}</div>
-                <div className="text-xs text-[#7b6b5b]">
-                  {serviceLabel} / {form.partySize}名 {availabilitySummary ? `/ ${availabilitySummary}` : ""}
-                </div>
-              </div>
             </div>
 
             <div className="mx-auto max-w-[19rem] rounded-md border-0 bg-white p-3">
@@ -657,22 +599,14 @@ export function ReserveForm({
             style={{ rowGap: `${rightPanelSectionGap}px` }}
           >
             <div
-              className="whitespace-pre-line rounded-md border-0 bg-white px-3 py-2 text-center text-[#6f5b46] md:text-left"
-              style={{ fontSize: `${infoInlineFontSize}px` }}
+              className="grid grid-cols-1 md:grid-cols-3"
+              style={{
+                columnGap: `${rightPanelPairGap}px`,
+                rowGap: `${rightPanelPairGap}px`,
+                gridTemplateColumns: undefined,
+              }}
             >
-              <p>{infoInlineLead}</p>
-              <p>{infoInlineMessage}</p>
-              <p>{RESERVATION_BUSINESS_HOURS_TEXT}</p>
-              <p>{RESERVATION_WEB_HOURS_TEXT}</p>
-              <p className="text-[#b32626]">定休日：{RESERVATION_CLOSED_TEXT}</p>
-              <p className="text-[#b32626]">{RESERVATION_CUTOFF_TEXT}</p>
-            </div>
-
-            <div
-              className="grid grid-cols-2"
-              style={{ columnGap: `${rightPanelPairGap}px`, rowGap: `${rightPanelPairGap}px` }}
-            >
-              <div className="grid" style={{ rowGap: `${fieldLabelGap}px` }}>
+              <div className="grid min-w-0" style={{ rowGap: `${fieldLabelGap}px` }}>
                 <Label htmlFor="time-top">来店時間</Label>
                 <select
                   id="time-top"
@@ -682,18 +616,35 @@ export function ReserveForm({
                   style={{ borderRadius: `${formFieldRadius}px` }}
                   required
                 >
-                  {arrivalTimeOptions.map((time) => (
-                    <option key={time} value={time}>
-                      {serviceLabel} {time}
+                  {arrivalTimeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
                     </option>
                   ))}
                 </select>
-                <p className="text-xs text-[#6f5b46]">
-                  {serviceLabel}のWeb予約枠から選択してください。
-                </p>
               </div>
 
-              <div className="grid" style={{ rowGap: `${fieldLabelGap}px` }}>
+              <div className="grid min-w-0" style={{ rowGap: `${fieldLabelGap}px` }}>
+                <Label htmlFor="party-size">人数</Label>
+                <select
+                  id="party-size"
+                  value={form.partySize}
+                  onChange={(e) => updateField("partySize", Number(e.target.value))}
+                  className="h-10 w-full rounded-md border border-black bg-white px-3 text-sm text-[#2f1b0f] focus:outline-none focus:ring-2 focus:ring-black/20"
+                  style={{ borderRadius: `${formFieldRadius}px` }}
+                  required
+                >
+                  {Array.from({ length: partyMax - partyMin + 1 }, (_, i) => partyMin + i).map(
+                    (n) => (
+                      <option key={n} value={n}>
+                        {n}名
+                      </option>
+                    )
+                  )}
+                </select>
+              </div>
+
+              <div className="grid min-w-0" style={{ rowGap: `${fieldLabelGap}px` }}>
                 <Label htmlFor="course">コース</Label>
                 <select
                   id="course"
@@ -751,20 +702,20 @@ export function ReserveForm({
                 />
               </div>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="note">要望（任意）</Label>
+              <Textarea
+                id="note"
+                value={form.note}
+                onChange={(e) => updateField("note", e.target.value)}
+                className="min-h-[7.5rem] w-full border-black focus:ring-black/20 focus:border-black md:min-h-[6.5rem]"
+                placeholder="アレルギーや記念日のご希望など"
+              />
+            </div>
           </div>
         </div>
       </section>
-
-      <div className="mx-auto w-full max-w-[20.5rem] space-y-2 md:mx-0 md:max-w-none">
-        <Label htmlFor="note">要望（任意）</Label>
-        <Textarea
-          id="note"
-          value={form.note}
-          onChange={(e) => updateField("note", e.target.value)}
-          className="w-full border-black focus:ring-black/20 focus:border-black"
-          placeholder="アレルギーや記念日のご希望など"
-        />
-      </div>
 
       {availability.reason === "PHONE_ONLY" ? (
         <p className="rounded-md bg-[#fff7e6] px-4 py-3 text-sm text-[#8f2a2a]">
@@ -773,7 +724,7 @@ export function ReserveForm({
         </p>
       ) : null}
 
-      <div className="mx-auto w-full max-w-[20.5rem] space-y-3 pt-2 md:mx-0 md:max-w-none">
+      <div className="mx-auto w-full max-w-[20.5rem] space-y-3 pt-2 md:mx-0 md:-mt-[1.2cm] md:max-w-none">
         <div className="flex w-full flex-col items-start gap-y-0.5 text-[12px] leading-tight tracking-[-0.01em] text-[#4a3121] md:flex-row md:flex-wrap md:items-center md:justify-end md:gap-4 md:text-sm md:leading-normal md:tracking-normal">
           <p className="min-w-0 whitespace-nowrap">{cancelInlineMessage}</p>
           <a className="text-left underline md:whitespace-nowrap" href={CONTACT_TEL_LINK}>

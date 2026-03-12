@@ -372,6 +372,8 @@ export function ReserveForm({
   const calendarDayCallMarkerFontSize = 13;
   const calendarDayMarkerNormalFontWeight = 900;
   const calendarDayCallMarkerFontWeight = 700;
+  const calendarDayMarkerShadow =
+    "0.35px 0 currentColor, -0.35px 0 currentColor, 0 0.35px currentColor, 0 -0.35px currentColor";
   const calendarDayMarkerTopMargin = 8;
   const calendarDayGapX = 3;
   const calendarDayGapY = 3;
@@ -568,6 +570,10 @@ export function ReserveForm({
                           fontSize: `${markerFontSize}px`,
                           fontWeight: markerFontWeight,
                           lineHeight: `${calendarDayMarkerHeight}px`,
+                          textShadow:
+                            markerText === "○" || markerText === "△"
+                              ? calendarDayMarkerShadow
+                              : undefined,
                         }}
                       >
                         {markerText}
@@ -698,6 +704,42 @@ export function ReserveForm({
                 placeholder="アレルギーや記念日のご希望など"
               />
             </div>
+
+            <div className="hidden md:block">
+              <div className="space-y-3">
+                <div className="flex w-full flex-row flex-wrap items-center justify-end gap-4 text-sm text-[#4a3121]">
+                  <p className="min-w-0 whitespace-nowrap">{cancelInlineMessage}</p>
+                  <a className="text-left underline whitespace-nowrap" href={CONTACT_TEL_LINK}>
+                    {cancelInlinePhone}
+                  </a>
+                </div>
+                <div className="flex w-full justify-end">
+                  <button
+                    type="submit"
+                    className="relative inline-flex shrink-0 -translate-y-[0.2cm] items-center justify-center rounded-full border-0 bg-transparent p-0 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7a5a31]/35 disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{
+                      width: `${reserveButtonKnobWidth}px`,
+                      height: `${reserveButtonKnobHeight}px`,
+                    }}
+                    disabled={submitting || availability.reason !== "OK"}
+                    aria-label={submitting ? "送信中..." : "予約する"}
+                  >
+                    <span
+                      className="inline-flex items-center justify-center rounded-[26px] bg-gradient-to-b from-[#fffdfa] via-[#f7f2ea] to-[#efe6da]"
+                      style={{
+                        width: `${reserveButtonKnobWidth}px`,
+                        height: `${reserveButtonKnobHeight}px`,
+                        border: `${reserveButtonBorderWidth}px solid #8f6a39`,
+                      }}
+                    >
+                      <span className="text-base font-semibold tracking-wide text-[#7a5528] md:text-lg">
+                        {submitting ? "送信中" : "予約"}
+                      </span>
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -709,7 +751,7 @@ export function ReserveForm({
         </p>
       ) : null}
 
-      <div className="mx-auto w-full max-w-[20.5rem] space-y-3 pt-2 md:mx-0 md:-mt-[4.2cm] md:max-w-none">
+      <div className="mx-auto w-full max-w-[20.5rem] space-y-3 pt-2 md:hidden">
         <div className="flex w-full flex-col items-start gap-y-0.5 text-[12px] leading-tight tracking-[-0.01em] text-[#4a3121] md:flex-row md:flex-wrap md:items-center md:justify-end md:gap-4 md:text-sm md:leading-normal md:tracking-normal">
           <p className="min-w-0 whitespace-nowrap">{cancelInlineMessage}</p>
           <a className="text-left underline md:whitespace-nowrap" href={CONTACT_TEL_LINK}>
@@ -719,7 +761,7 @@ export function ReserveForm({
         <div className="flex w-full justify-end">
           <button
             type="submit"
-            className="relative inline-flex shrink-0 translate-y-[-0.5cm] items-center justify-center rounded-full border-0 bg-transparent p-0 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7a5a31]/35 disabled:cursor-not-allowed disabled:opacity-50 md:-translate-y-[0.4cm]"
+            className="relative inline-flex shrink-0 translate-y-[-0.5cm] items-center justify-center rounded-full border-0 bg-transparent p-0 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7a5a31]/35 disabled:cursor-not-allowed disabled:opacity-50"
             style={{
               width: `${reserveButtonKnobWidth}px`,
               height: `${reserveButtonKnobHeight}px`,

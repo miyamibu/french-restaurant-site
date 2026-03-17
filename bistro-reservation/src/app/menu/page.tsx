@@ -28,10 +28,10 @@ const LAYOUT_SIZE = {
   rightWidthOffsetPercent: 26,
   desktopGapPx: 0,
   // Group move for left column.
-  leftColumnOffsetXPx: -197,
+  leftColumnOffsetXPx: -208,
   leftColumnOffsetYPx: 0,
   // Group move for right slideshow.
-  rightColumnOffsetXPx: -178,
+  rightColumnOffsetXPx: -189,
   rightColumnOffsetYPx: 0,
 };
 

@@ -37,7 +37,7 @@ export function TopNav() {
         <a
           href="https://www.instagram.com/bistrocentquatre104?igsh=MXQydXRuMnI5YWllMA=="
           target="_blank"
-          rel="noreferrer"
+          rel="noopener noreferrer"
           aria-label="Instagramへ"
           className="z-20 flex h-10 w-10 items-center justify-center text-[#6b3b20] transition hover:text-[#8a4c29]"
         >

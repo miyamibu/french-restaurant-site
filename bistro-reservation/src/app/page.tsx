@@ -292,7 +292,7 @@ export default function HomePage() {
     },
     heroPhoto: {
       offsetXPx: 0,
-      offsetYPx: -38,
+      offsetYPx: -15,
       focalXPercent: 50,
       focalYPercent: 35,
     },

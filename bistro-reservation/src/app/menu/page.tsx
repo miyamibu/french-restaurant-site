@@ -25,10 +25,10 @@ const LAYOUT_SIZE = {
   leftWidthOffsetPercent: 38,
   desktopRightPercent: 68,
   // +value widens right column, -value narrows right column.
-  rightWidthOffsetPercent: -2,
+  rightWidthOffsetPercent: 2,
   desktopGapPx: 0,
   // Group move for left column.
-  leftColumnOffsetXPx: -121,
+  leftColumnOffsetXPx: -197,
   leftColumnOffsetYPx: 0,
   // Group move for right slideshow.
   rightColumnOffsetXPx: -140,
@@ -65,7 +65,7 @@ const PLUS_BUTTON_SIZE = {
 const SLIDESHOW_SIZE = {
   topPx: TOP_GAP_PX,
   // Bottom space for desktop right slideshow area.
-  bottomGapPx: 100,
+  bottomGapPx: 138,
   radiusPx: 50,
 };
 

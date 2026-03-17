@@ -65,7 +65,7 @@ const PLUS_BUTTON_SIZE = {
 const SLIDESHOW_SIZE = {
   topPx: TOP_GAP_PX,
   // Bottom space for desktop right slideshow area.
-  bottomGapPx: 24,
+  bottomGapPx: 138,
   radiusPx: 50,
 };
 

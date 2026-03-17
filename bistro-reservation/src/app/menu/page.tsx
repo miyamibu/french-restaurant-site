@@ -22,16 +22,16 @@ const menuHeadingSize = { base: 32, md: 60 };
 const LAYOUT_SIZE = {
   desktopLeftPercent: 30,
   // +value widens left column, -value narrows left column.
-  leftWidthOffsetPercent: 25,
+  leftWidthOffsetPercent: 30,
   desktopRightPercent: 68,
   // +value widens right column, -value narrows right column.
-  rightWidthOffsetPercent: -4,
+  rightWidthOffsetPercent: 0,
   desktopGapPx: 0,
   // Group move for left column.
-  leftColumnOffsetXPx: -80,
+  leftColumnOffsetXPx: -140,
   leftColumnOffsetYPx: 0,
   // Group move for right slideshow.
-  rightColumnOffsetXPx: -40,
+  rightColumnOffsetXPx: 10,
   rightColumnOffsetYPx: 0,
 };
 
@@ -398,7 +398,12 @@ export default function MenuPage() {
                     </h2>
 
                     {isOpen && (
-                      <div id={panelId} role="region" aria-labelledby={triggerId} className="pt-5 md:pt-6">
+                      <div
+                        id={panelId}
+                        role="region"
+                        aria-labelledby={triggerId}
+                        className="pt-5 text-center md:pt-6"
+                      >
                         {section.key === "course" && (
                           <div className="space-y-12">
                             {courseMenus.map((course) => (

@@ -901,6 +901,7 @@ return (
               <span className={menuCardText.title}>{main}</span>
               {count && <span className={menuCardText.meta}>{count}</span>}
               {price && <span className={menuCardText.meta}>{price}</span>}
+              {price && <span className={menuCardText.meta}>税別</span>}
             </div>
 
             <p className={menuCardText.desc}>{renderMultilineText(item.description)}</p>
@@ -946,6 +947,7 @@ return (
                 {main && <span className={menuCardText.title}>{main}</span>}
                 {count && <span className={menuCardText.meta}>{count}</span>}
                 {price && <span className={menuCardText.meta}>{price}</span>}
+                {price && <span className={menuCardText.meta}>税別</span>}
               </div>
             )}
 
@@ -972,7 +974,6 @@ return (
             className="mt-3 text-[13px] md:text-lg leading-relaxed text-[#4a3121]"
             style={{ transform: `translate(${infoPos.body.x}px, ${infoPos.body.y}px)` }}
           >
-            表示されている総額は、本体価格に消費税が含まれております。
             アレルギー等のお食事制限がございましたら、お気軽にお申し付けください。
             また、予告なくメニュー内容に変更が生じる場合がございますので、
             <span className="whitespace-nowrap">ご了承ください。</span>

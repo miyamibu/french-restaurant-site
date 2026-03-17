@@ -3,7 +3,7 @@ export const RESERVATION_CONFIG = {
   openingDate: "2026-04-03",
   closedWeekdays: [1, 2] as const,
   closedWeekdayLabels: ["月曜日", "火曜日"] as const,
-  closedDates: [] as string[],
+  closedDates: ["2026-04-25"] as const,
   specialOpenDates: [] as string[],
   bookingWindowMonths: 3,
   bookingCutoff: {

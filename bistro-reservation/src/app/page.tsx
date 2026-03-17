@@ -579,6 +579,8 @@ return (
     <div className="absolute inset-0 bg-gradient-to-br from-[#f5e7ce]/10 via-transparent to-white/5" />
   </div>
 
+  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] hidden h-[170px] bg-gradient-to-b from-white/0 via-white/85 to-white md:block" />
+
   <div className="absolute inset-0 z-10 pointer-events-none">
     <div className="hero-left-fade absolute left-3 top-[58px] md:bottom-20 md:left-12 md:top-auto">
       <Image

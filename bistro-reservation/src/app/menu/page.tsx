@@ -25,13 +25,13 @@ const LAYOUT_SIZE = {
   leftWidthOffsetPercent: 38,
   desktopRightPercent: 68,
   // +value widens right column, -value narrows right column.
-  rightWidthOffsetPercent: 6,
+  rightWidthOffsetPercent: 14,
   desktopGapPx: 0,
   // Group move for left column.
-  leftColumnOffsetXPx: -235,
+  leftColumnOffsetXPx: -254,
   leftColumnOffsetYPx: 0,
   // Group move for right slideshow.
-  rightColumnOffsetXPx: -216,
+  rightColumnOffsetXPx: -235,
   rightColumnOffsetYPx: 0,
 };
 

@@ -294,7 +294,7 @@ export default function HomePage() {
       offsetXPx: 0,
       offsetYPx: -5,
       focalXPercent: 50,
-      focalYPercent: 35,
+      focalYPercent: 15,
     },
     po: {
       w: 200,

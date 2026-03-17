@@ -22,16 +22,16 @@ const menuHeadingSize = { base: 32, md: 60 };
 const LAYOUT_SIZE = {
   desktopLeftPercent: 30,
   // +value widens left column, -value narrows left column.
-  leftWidthOffsetPercent: 34,
+  leftWidthOffsetPercent: 38,
   desktopRightPercent: 68,
   // +value widens right column, -value narrows right column.
-  rightWidthOffsetPercent: -2,
+  rightWidthOffsetPercent: -5,
   desktopGapPx: 0,
   // Group move for left column.
-  leftColumnOffsetXPx: -110,
+  leftColumnOffsetXPx: -45,
   leftColumnOffsetYPx: 0,
   // Group move for right slideshow.
-  rightColumnOffsetXPx: -30,
+  rightColumnOffsetXPx: -140,
   rightColumnOffsetYPx: 0,
 };
 

@@ -559,7 +559,7 @@ return (
 )}
 
 	      <ScrollReveal>
-	<section className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen overflow-hidden h-[56.25vw] min-h-[180px] rounded-none md:h-auto md:min-h-[820px]">
+	<section className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen overflow-hidden h-[56.25vw] min-h-[180px] rounded-none md:h-auto md:min-h-[960px]">
   <div
     className="absolute inset-0"
     style={{

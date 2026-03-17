@@ -64,8 +64,10 @@ const PLUS_BUTTON_SIZE = {
 
 const SLIDESHOW_SIZE = {
   topPx: TOP_GAP_PX,
-  // Bottom space for desktop right slideshow area.
-  bottomGapPx: 24,
+  // Used only for desktop slideshow height.
+  bottomGapPx: 138,
+  // Outer page bottom padding; keep separate so we can remove whitespace without stretching slides.
+  pageBottomGapPx: 0,
   radiusPx: 50,
 };
 
@@ -318,12 +320,13 @@ export default function MenuPage() {
         "--menu-plus-offset-y": `${plusOffsetYPx}px`,
         "--menu-slide-top": `${SLIDESHOW_SIZE.topPx}px`,
         "--menu-slide-bottom-gap": `${SLIDESHOW_SIZE.bottomGapPx}px`,
+        "--menu-page-bottom-gap": `${SLIDESHOW_SIZE.pageBottomGapPx}px`,
         "--menu-slide-height": `calc(100vh - var(--menu-slide-top) - var(--menu-slide-bottom-gap))`,
         "--menu-slide-radius": `${SLIDESHOW_SIZE.radiusPx}px`,
       } as CSSProperties}
     >
       <div className="pointer-events-none absolute inset-y-0 left-1/2 w-screen -translate-x-1/2 bg-gradient-to-b from-[#fff9e4] via-[#F3E5AB] to-[#dcc06f]" />
-      <div className="relative z-10 px-4 pb-16 md:pb-[var(--menu-slide-bottom-gap)]" style={{ paddingTop: `${topGapPx}px` }}>
+      <div className="relative z-10 px-4 pb-16 md:pb-[var(--menu-page-bottom-gap)]" style={{ paddingTop: `${topGapPx}px` }}>
         <header className="mb-8 space-y-2 text-center">
           <h1
             className={`menu-heading-title font-semibold text-[#2f1b0f] ${tangerine.className}`}

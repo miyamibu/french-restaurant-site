@@ -28,19 +28,36 @@ async function executeCancelExpired(req: NextRequest) {
   try {
     const nowIso = new Date().toISOString();
 
-    const { data: ordersToCancel, error: selectError } = await supabaseServer
-      .from("orders")
-      .select("id, version, status, hold_expires_at, expires_at, canceled_at")
-      .is("canceled_at", null)
-      .in("status", ["QUOTED", "PENDING_PAYMENT"])
-      .or(`hold_expires_at.lt.${nowIso},expires_at.lt.${nowIso}`);
+    const [quotedResponse, pendingResponse] = await Promise.all([
+      supabaseServer
+        .from("orders")
+        .select("id, version, status, hold_expires_at, expires_at, canceled_at")
+        .is("canceled_at", null)
+        .eq("status", "QUOTED")
+        .lt("hold_expires_at", nowIso),
+      supabaseServer
+        .from("orders")
+        .select("id, version, status, hold_expires_at, expires_at, canceled_at")
+        .is("canceled_at", null)
+        .eq("status", "PENDING_PAYMENT")
+        .lt("expires_at", nowIso),
+    ]);
+
+    const quotedError = quotedResponse.error;
+    const pendingError = pendingResponse.error;
+    const selectError = quotedError ?? pendingError;
+    const ordersToCancel = [...(quotedResponse.data ?? []), ...(pendingResponse.data ?? [])];
 
     if (selectError) {
       logError("crons.cancel_expired.select_failed", {
         requestId,
         route,
         errorCode: "CRON_SELECT_FAILED",
-        context: { message: selectError.message },
+        context: {
+          message: selectError.message,
+          quotedError: quotedError?.message ?? null,
+          pendingError: pendingError?.message ?? null,
+        },
       });
       return apiError(500, {
         error: "Database error",

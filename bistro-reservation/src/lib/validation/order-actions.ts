@@ -23,6 +23,7 @@ export const setPaymentMethodPayloadSchema = z
   .object({
     paymentMethod: normalizedOrderPaymentMethodSchema,
     storeVisitDate: dateStringSchema.optional(),
+    humanToken: z.string().trim().min(1).max(512),
   })
   .superRefine((value, ctx) => {
     if (value.paymentMethod === "PAY_IN_STORE" && !value.storeVisitDate) {

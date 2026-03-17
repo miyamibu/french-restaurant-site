@@ -204,6 +204,8 @@ function mapRpcError(error: { message?: string } | null, fallbackCode: string): 
     "PAYMENT_AMOUNT_MISMATCH",
     "PAYMENT_METHOD_MISMATCH",
     "STORE_VISIT_DATE_REQUIRED",
+    "STORE_VISIT_NOT_BUSINESS_DAY",
+    "STORE_VISIT_OUT_OF_RANGE",
     "INVALID_PAYMENT_METHOD",
     "ALREADY_CANCELLED",
     "ALREADY_COMPLETED",
@@ -216,7 +218,10 @@ function mapRpcError(error: { message?: string } | null, fallbackCode: string): 
         ? 404
         : matched.startsWith("HUMAN_")
           ? 403
-          : matched === "STORE_VISIT_DATE_REQUIRED" || matched === "INVALID_PAYMENT_METHOD"
+          : matched === "STORE_VISIT_DATE_REQUIRED" ||
+              matched === "STORE_VISIT_NOT_BUSINESS_DAY" ||
+              matched === "STORE_VISIT_OUT_OF_RANGE" ||
+              matched === "INVALID_PAYMENT_METHOD"
             ? 400
             : 409;
     return createActionError(status, matched, message);
@@ -356,6 +361,7 @@ export async function executeSetPaymentMethodAction(input: {
   expectedVersion: number;
   paymentMethod: NormalizedOrderPaymentMethod;
   storeVisitDate?: string | null;
+  humanToken?: string | null;
   actorType: ActorType;
   actorId: string | null;
   requestId: string;
@@ -368,6 +374,7 @@ export async function executeSetPaymentMethodAction(input: {
       p_expected_version: input.expectedVersion,
       p_payment_method: input.paymentMethod,
       p_store_visit_date: input.storeVisitDate ?? null,
+      p_token_hash: input.humanToken ? hashHumanToken(input.humanToken) : null,
       p_expires_at: computePaymentExpiry(input.paymentMethod, input.storeVisitDate),
       p_actor_type: input.actorType,
       p_actor_id: input.actorId,

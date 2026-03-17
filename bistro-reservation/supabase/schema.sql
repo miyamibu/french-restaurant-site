@@ -373,13 +373,15 @@ create or replace function public.set_order_payment_method_action(
   p_actor_type text,
   p_actor_id text,
   p_request_id text,
-  p_idempotency_key text
+  p_idempotency_key text,
+  p_token_hash text default null
 )
 returns jsonb
 language plpgsql
 as $$
 declare
   v_order public.orders%rowtype;
+  v_token public.human_tokens%rowtype;
   v_updated public.orders%rowtype;
   v_action_id uuid;
   v_action_created_at timestamptz;
@@ -407,7 +409,22 @@ begin
     raise exception 'ALREADY_CANCELLED';
   end if;
 
-  if v_order.human_confirmed_expires_at is null or v_order.human_confirmed_expires_at <= now() then
+  if p_token_hash is not null then
+    select *
+    into v_token
+    from public.human_tokens
+    where order_id = p_order_id
+      and token_hash = p_token_hash
+    for update;
+
+    if not found then
+      raise exception 'HUMAN_TOKEN_INVALID';
+    end if;
+
+    if v_token.used_at is not null or v_token.expires_at <= now() then
+      raise exception 'HUMAN_TOKEN_EXPIRED';
+    end if;
+  elsif v_order.human_confirmed_expires_at is null or v_order.human_confirmed_expires_at <= now() then
     raise exception 'HUMAN_CONFIRMATION_REQUIRED';
   end if;
 
@@ -419,8 +436,60 @@ begin
     raise exception 'STORE_VISIT_DATE_REQUIRED';
   end if;
 
+  if p_payment_method = 'PAY_IN_STORE' and extract(dow from p_store_visit_date) not in (0, 4, 5, 6) then
+    raise exception 'STORE_VISIT_NOT_BUSINESS_DAY';
+  end if;
+
+  if p_payment_method = 'PAY_IN_STORE'
+     and (
+       p_store_visit_date < ((now() at time zone 'Asia/Tokyo')::date + 14)
+       or p_store_visit_date > ((now() at time zone 'Asia/Tokyo')::date + 30)
+     ) then
+    raise exception 'STORE_VISIT_OUT_OF_RANGE';
+  end if;
+
   if p_payment_method = 'BANK_TRANSFER' then
     v_payment_reference := public.generate_unique_payment_reference_8();
+  end if;
+
+  if p_token_hash is not null then
+    update public.human_tokens
+    set used_at = now()
+    where id = v_token.id;
+
+    insert into public.order_actions (
+      order_id,
+      action_type,
+      actor_type,
+      actor_id,
+      request_id,
+      idempotency_key,
+      from_status,
+      to_status,
+      version_before,
+      version_after,
+      payment_method_before,
+      payment_method_after,
+      payment_reference,
+      amount_snapshot,
+      metadata
+    ) values (
+      v_order.id,
+      'HUMAN_CONFIRMED',
+      'user',
+      p_actor_id,
+      p_request_id,
+      p_idempotency_key,
+      v_order.status,
+      v_order.status,
+      v_order.version,
+      v_order.version,
+      v_order.payment_method,
+      v_order.payment_method,
+      v_order.payment_reference,
+      v_order.total,
+      jsonb_build_object('human_token_id', v_token.id)
+    );
   end if;
 
   update public.orders
@@ -431,7 +500,20 @@ begin
       when p_payment_method = 'PAY_IN_STORE' then p_store_visit_date
       else null
     end,
+    hold_expires_at = null,
     expires_at = p_expires_at,
+    human_confirmed_at = case
+      when p_token_hash is not null then now()
+      else human_confirmed_at
+    end,
+    human_confirmed_expires_at = case
+      when p_token_hash is not null then now() + interval '15 minutes'
+      else human_confirmed_expires_at
+    end,
+    human_confirmed_by = case
+      when p_token_hash is not null then coalesce(p_actor_id, 'human-token')
+      else human_confirmed_by
+    end,
     status = 'PENDING_PAYMENT',
     version = version + 1,
     updated_at = now()

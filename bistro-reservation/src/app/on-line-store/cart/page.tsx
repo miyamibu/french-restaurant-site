@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Noto_Serif_JP, Tangerine } from "next/font/google";
 import { formatYen, getCartItems, type StoreCartItem, clearCart, removeFromCart } from "@/lib/store-cart";
+import { savePendingOrderPaymentSetup } from "@/lib/store-checkout-session";
 
 const headingFont = Tangerine({
   subsets: ["latin"],
@@ -183,8 +184,27 @@ function StoreCartContent() {
       });
 
       if (response.ok) {
+        const json = await response.json();
+        if (!json?.paymentSetup?.orderId || !json?.paymentSetup?.humanToken) {
+          throw new Error("本人確認ステップの初期化に失敗しました");
+        }
+        savePendingOrderPaymentSetup({
+          orderId: String(json.paymentSetup.orderId),
+          expectedVersion: Number(json.paymentSetup.expectedVersion ?? 0),
+          humanToken: String(json.paymentSetup.humanToken),
+          paymentMethod:
+            json.paymentSetup.paymentMethod === "PAY_IN_STORE" ||
+            json.paymentSetup.paymentMethod === "BANK_TRANSFER"
+              ? json.paymentSetup.paymentMethod
+              : null,
+          storeVisitDate:
+            typeof json.paymentSetup.storeVisitDate === "string"
+              ? json.paymentSetup.storeVisitDate
+              : null,
+          holdExpiresAt: String(json.paymentSetup.holdExpiresAt ?? ""),
+        });
         clearCart();
-        router.push(`/on-line-store/order-complete?method=${paymentMethod}`);
+        router.push(`/on-line-store/pay?order_id=${encodeURIComponent(String(json.paymentSetup.orderId))}`);
       } else {
         const errorData = await response.json();
         setSubmitError(true);

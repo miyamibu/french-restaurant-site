@@ -1,8 +1,0 @@
-{
-  "name": "probe-existing",
-  "version": "1.0.0",
-  "scripts": {
-    "dev": "next dev",
-    "add": "liftkit add"
-  }
-}

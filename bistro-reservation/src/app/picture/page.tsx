@@ -35,14 +35,8 @@ const FALLBACK_PHOTOS: GalleryPhoto[] = [
   { id: "fallback-interior-4", url: "/photos/内装/厨房１.JPG", caption: "厨房１", category: "interior", sortOrder: 4 },
   { id: "fallback-interior-5", url: "/photos/内装/厨房２.JPG", caption: "厨房２", category: "interior", sortOrder: 5 },
   { id: "fallback-exterior-1", url: "/photos/外装/外観1.JPG", caption: "外観1", category: "exterior", sortOrder: 1 },
-  { id: "fallback-exterior-2", url: "/photos/外装/外観2.JPG", caption: "外観2", category: "exterior", sortOrder: 2 },
-  { id: "fallback-exterior-3", url: "/photos/外装/外観3.JPG", caption: "外観3", category: "exterior", sortOrder: 3 },
   { id: "fallback-exterior-4", url: "/photos/外装/外観4.JPG", caption: "外観4", category: "exterior", sortOrder: 4 },
-  { id: "fallback-exterior-5", url: "/photos/外装/外観5.JPG", caption: "外観5", category: "exterior", sortOrder: 5 },
   { id: "fallback-exterior-6", url: "/photos/外装/外観6.JPG", caption: "外観6", category: "exterior", sortOrder: 6 },
-  { id: "fallback-exterior-7", url: "/photos/外装/外観7.JPG", caption: "外観7", category: "exterior", sortOrder: 7 },
-  { id: "fallback-exterior-8", url: "/photos/外装/外観8.JPG", caption: "外観8", category: "exterior", sortOrder: 8 },
-  { id: "fallback-exterior-9", url: "/photos/外装/外観9.JPG", caption: "外観9", category: "exterior", sortOrder: 9 },
   { id: "fallback-exterior-10", url: "/photos/外装/外観10.JPG", caption: "外観10", category: "exterior", sortOrder: 10 },
 ];
 

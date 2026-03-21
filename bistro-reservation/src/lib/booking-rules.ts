@@ -17,6 +17,11 @@ import {
 
 const closedWeekdaySet = new Set<number>(RESERVATION_CONFIG.closedWeekdays);
 const closedDateSet = new Set<string>(RESERVATION_CONFIG.closedDates);
+const closedServicePeriodSet = new Set<string>(
+  RESERVATION_CONFIG.closedServicePeriods.map(
+    ({ date, servicePeriod }) => `${date}:${servicePeriod}`
+  )
+);
 const specialOpenDateSet = new Set<string>(RESERVATION_CONFIG.specialOpenDates);
 const servicePeriodEntries = Object.entries(
   RESERVATION_CONFIG.servicePeriods
@@ -55,9 +60,19 @@ export function isClosedReservationDateBySchedule(date: Date): boolean {
 
 export function isClosedReservationDate(
   date: Date,
-  options?: { businessDayClosed?: boolean }
+  options?: {
+    businessDayClosed?: boolean;
+    servicePeriod?: ReservationServicePeriodKey;
+  }
 ): boolean {
   if (options?.businessDayClosed) {
+    return true;
+  }
+
+  if (
+    options?.servicePeriod &&
+    closedServicePeriodSet.has(`${formatJst(date)}:${options.servicePeriod}`)
+  ) {
     return true;
   }
 

@@ -173,7 +173,12 @@ export function evaluateReservationAvailability(
     };
   }
 
-  if (isClosedReservationDate(parsedDate, { businessDayClosed: input.businessDayClosed })) {
+  if (
+    isClosedReservationDate(parsedDate, {
+      businessDayClosed: input.businessDayClosed,
+      servicePeriod: input.servicePeriod,
+    })
+  ) {
     return {
       reason: "CLOSED",
       webBookable: false,

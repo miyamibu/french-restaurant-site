@@ -122,6 +122,34 @@ describe("reservation capacity rules", () => {
       });
     });
 
+    it("closes only lunch on 2026-04-25", () => {
+      expect(
+        evaluateReservationAvailability({
+          date: "2026-04-25",
+          servicePeriod: "LUNCH",
+          partySize: 2,
+          existingReservations: [],
+          now: jstDateTimeFromString("2026-04-20", "12:00"),
+        })
+      ).toEqual({
+        reason: "CLOSED",
+        webBookable: false,
+      });
+
+      expect(
+        evaluateReservationAvailability({
+          date: "2026-04-25",
+          servicePeriod: "DINNER",
+          partySize: 2,
+          existingReservations: [],
+          now: jstDateTimeFromString("2026-04-20", "12:00"),
+        })
+      ).toEqual({
+        reason: "OK",
+        webBookable: true,
+      });
+    });
+
     it("returns PHONE_ONLY for 9 or more", () => {
       expect(
         evaluateReservationAvailability({

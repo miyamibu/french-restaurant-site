@@ -7,7 +7,6 @@ import {
   inferReservationServicePeriodFromArrivalTime,
   inferReservationServicePeriodFromCourse,
   isArrivalTimeAllowed,
-  isClosedReservationWeekday,
   normalizeReservationDateInput,
 } from "@/lib/booking-rules";
 import { CONTACT_PHONE_DISPLAY, CONTACT_MESSAGE, CONTACT_TEL_LINK } from "@/lib/contact";
@@ -52,6 +51,7 @@ interface AvailabilityState {
 }
 
 type MonthlyAvailabilityMap = Record<string, AvailabilityState | null>;
+type MonthlyAvailabilityByPeriod = Record<ReservationServicePeriodKey, MonthlyAvailabilityMap>;
 
 const initialAvailability: AvailabilityState = {
   webBookable: false,
@@ -67,6 +67,7 @@ const nonSelectableReasons = new Set([
   "SAME_DAY_BLOCKED",
   "CUTOFF_PASSED",
 ]);
+const servicePeriods: ReservationServicePeriodKey[] = ["LUNCH", "DINNER"];
 
 function sanitizeDate(value: string | undefined, fallback: string) {
   const normalized = normalizeReservationDateInput(value, fallback);
@@ -166,7 +167,11 @@ export function ReserveForm({
   const [calendarMonth, setCalendarMonth] = useState<Date>(() =>
     startOfJstMonth(jstDateFromString(defaultDate))
   );
-  const [monthlyAvailability, setMonthlyAvailability] = useState<MonthlyAvailabilityMap>({});
+  const [monthlyAvailabilityByPeriod, setMonthlyAvailabilityByPeriod] =
+    useState<MonthlyAvailabilityByPeriod>({
+      LUNCH: {},
+      DINNER: {},
+    });
 
   const partyMin = 1;
   const partyMax = RESERVATION_CONFIG.maxPartySize;
@@ -235,6 +240,46 @@ export function ReserveForm({
     return data.days as MonthlyAvailabilityMap;
   }
 
+  function getDateAvailability(date: string, servicePeriod: ReservationServicePeriodKey) {
+    return monthlyAvailabilityByPeriod[servicePeriod][date] ?? null;
+  }
+
+  function getSelectableFallbackPeriod(date: string, currentPeriod: ReservationServicePeriodKey) {
+    return servicePeriods.find((period) => {
+      if (period === currentPeriod) {
+        return false;
+      }
+
+      const daily = getDateAvailability(date, period);
+      return daily != null && !nonSelectableReasons.has(daily.reason);
+    });
+  }
+
+  function switchToServicePeriod(period: ReservationServicePeriodKey) {
+    const nextCourse = getReservationCoursesForServicePeriod(period)[0]?.value ?? "";
+    const nextArrivalTime = getDefaultArrivalTimeForCourse(undefined, period);
+
+    setForm((prev) => ({
+      ...prev,
+      course: nextCourse,
+      arrivalTime: nextArrivalTime,
+    }));
+  }
+
+  function updateDate(date: string) {
+    updateField("date", date);
+
+    const currentDaily = getDateAvailability(date, currentServicePeriod);
+    if (currentDaily != null && !nonSelectableReasons.has(currentDaily.reason)) {
+      return;
+    }
+
+    const fallbackPeriod = getSelectableFallbackPeriod(date, currentServicePeriod);
+    if (fallbackPeriod) {
+      switchToServicePeriod(fallbackPeriod);
+    }
+  }
+
   useEffect(() => {
     if (!Number.isNaN(selectedDate.getTime())) {
       setCalendarMonth(startOfJstMonth(selectedDate));
@@ -283,20 +328,58 @@ export function ReserveForm({
   useEffect(() => {
     let active = true;
 
-    loadMonthlyAvailability(calendarMonth, currentServicePeriod, form.partySize)
-      .then((days) => {
+    Promise.all(
+      servicePeriods.map(async (period) => [
+        period,
+        await loadMonthlyAvailability(calendarMonth, period, form.partySize),
+      ])
+    )
+      .then((entries) => {
         if (!active) return;
-        setMonthlyAvailability(days);
+        setMonthlyAvailabilityByPeriod({
+          LUNCH: {},
+          DINNER: {},
+          ...Object.fromEntries(entries),
+        } as MonthlyAvailabilityByPeriod);
       })
       .catch(() => {
         if (!active) return;
-        setMonthlyAvailability({});
+        setMonthlyAvailabilityByPeriod({
+          LUNCH: {},
+          DINNER: {},
+        });
       });
 
     return () => {
       active = false;
     };
-  }, [calendarMonth, currentServicePeriod, form.partySize]);
+  }, [calendarMonth, form.partySize]);
+
+  useEffect(() => {
+    const currentDaily = monthlyAvailabilityByPeriod[currentServicePeriod][form.date] ?? null;
+    if (currentDaily == null || !nonSelectableReasons.has(currentDaily.reason)) {
+      return;
+    }
+
+    const fallbackPeriod = servicePeriods.find((period) => {
+      if (period === currentServicePeriod) {
+        return false;
+      }
+
+      const daily = monthlyAvailabilityByPeriod[period][form.date] ?? null;
+      return daily != null && !nonSelectableReasons.has(daily.reason);
+    });
+    if (fallbackPeriod) {
+      const nextCourse = getReservationCoursesForServicePeriod(fallbackPeriod)[0]?.value ?? "";
+      const nextArrivalTime = getDefaultArrivalTimeForCourse(undefined, fallbackPeriod);
+
+      setForm((prev) => ({
+        ...prev,
+        course: nextCourse,
+        arrivalTime: nextArrivalTime,
+      }));
+    }
+  }, [currentServicePeriod, form.date, monthlyAvailabilityByPeriod]);
 
   function updateField<T extends keyof typeof form>(key: T, value: (typeof form)[T]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -342,12 +425,24 @@ export function ReserveForm({
           loadDailyAvailability(form.date, currentServicePeriod, form.partySize).catch(
             () => initialAvailability
           ),
-          loadMonthlyAvailability(calendarMonth, currentServicePeriod, form.partySize).catch(
-            () => monthlyAvailability
+          Promise.all(
+            servicePeriods.map(async (period) => [
+              period,
+              await loadMonthlyAvailability(calendarMonth, period, form.partySize),
+            ])
+          ).catch(
+            () =>
+              servicePeriods.map((period) => [period, monthlyAvailabilityByPeriod[period]]) as Array<
+                [ReservationServicePeriodKey, MonthlyAvailabilityMap]
+              >
           ),
         ]);
         setAvailability(nextDaily);
-        setMonthlyAvailability(nextMonthly);
+        setMonthlyAvailabilityByPeriod({
+          LUNCH: {},
+          DINNER: {},
+          ...Object.fromEntries(nextMonthly),
+        } as MonthlyAvailabilityByPeriod);
       } else {
         setError(data.error ?? data.reason ?? "予約に失敗しました。お電話ください。");
       }
@@ -500,21 +595,25 @@ export function ReserveForm({
                   const isSelected = cell.value === form.date;
                   const cellDay = cell.dateObj;
                   const isSameOrPast = cellDay.getTime() <= today.getTime();
-                  const daily = monthlyAvailability[cell.value];
+                  const dailyStates = servicePeriods
+                    .map((period) => getDateAvailability(cell.value, period))
+                    .filter((daily): daily is AvailabilityState => daily != null);
+                  const hasBookablePeriod = dailyStates.some((daily) => daily.webBookable);
+                  const hasPhoneOnlyPeriod = dailyStates.some((daily) => daily.reason === "PHONE_ONLY");
                   const isClosedDay =
-                    isClosedReservationWeekday(cellDay) || daily?.reason === "CLOSED";
+                    dailyStates.length > 0 && dailyStates.every((daily) => daily.reason === "CLOSED");
                   const isDateDisabled =
                     isSameOrPast ||
-                    isClosedDay ||
-                    (daily != null && nonSelectableReasons.has(daily.reason));
+                    (dailyStates.length > 0 &&
+                      dailyStates.every((daily) => nonSelectableReasons.has(daily.reason)));
 
                   let markerText = "";
-                  if (isClosedDay) {
-                    markerText = "休";
-                  } else if (daily?.reason === "PHONE_ONLY") {
-                    markerText = "△";
-                  } else if (daily?.webBookable) {
+                  if (hasBookablePeriod) {
                     markerText = "○";
+                  } else if (hasPhoneOnlyPeriod) {
+                    markerText = "△";
+                  } else if (isClosedDay) {
+                    markerText = "休";
                   }
 
                   const markerFontSize =
@@ -540,7 +639,7 @@ export function ReserveForm({
                       <button
                         type="button"
                         disabled={isDateDisabled}
-                        onClick={() => updateField("date", cell.value)}
+                        onClick={() => updateDate(cell.value)}
                         className={[
                           "rounded-full text-sm transition",
                           isSelected

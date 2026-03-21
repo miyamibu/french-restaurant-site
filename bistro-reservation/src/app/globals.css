@@ -136,3 +136,40 @@ a:hover {
   background-color: #ffffff !important;
   opacity: 1 !important;
 }
+
+.menu-tab-heading .menu-tab-badge,
+.menu-tab-heading .menu-tab-pill {
+  position: absolute;
+  left: calc(50% + 5.3em);
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.56rem;
+  letter-spacing: 0.2em;
+  color: #b8975a;
+  white-space: nowrap;
+}
+
+.menu-tab-heading .menu-tab-badge {
+  left: calc(50% + 5em);
+}
+
+.menu-tab-heading .menu-tab-or {
+  margin: 0 0.4em;
+  font-size: 0.66rem;
+  letter-spacing: 0.2em;
+  color: #9a8a77;
+}
+
+.menu-tab-linklike {
+  color: #d4b07a;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+@media (max-width: 767px) {
+  .menu-tab-heading .menu-tab-badge,
+  .menu-tab-heading .menu-tab-pill {
+    left: calc(50% + 4.75em);
+    font-size: 0.5rem;
+  }
+}

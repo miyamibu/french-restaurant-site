@@ -86,11 +86,21 @@ export function getReservationCoursesForServicePeriod(
 export const RESERVATION_CLOSED_TEXT =
   RESERVATION_CONFIG.closedWeekdayLabels.join("・");
 
+export const RESERVATION_BUSINESS_HOURS = [
+  { label: "ランチ", time: "11:00-14:00" },
+  { label: "ディナー", time: "17:30-22:00（L.O. 21:00）" },
+] as const;
+
+export const RESERVATION_WEB_HOURS = [
+  { label: "ランチ", time: "11:00-13:30" },
+  { label: "ディナー", time: "17:30-20:00" },
+] as const;
+
 export const RESERVATION_BUSINESS_HOURS_TEXT =
-  "営業時間：ランチ 11:00-14:00 / ディナー 17:30-22:00（L.O. 21:00）";
+  `営業時間：${RESERVATION_BUSINESS_HOURS.map((slot) => `${slot.label} ${slot.time}`).join(" / ")}`;
 
 export const RESERVATION_WEB_HOURS_TEXT =
-  "Web予約可能時間：ランチ 11:00-13:30 / ディナー 17:30-20:00";
+  `Web予約可能時間：${RESERVATION_WEB_HOURS.map((slot) => `${slot.label} ${slot.time}`).join(" / ")}`;
 
 export const RESERVATION_CUTOFF_TEXT =
   RESERVATION_CONFIG.phoneGuidance;

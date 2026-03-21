@@ -22,6 +22,7 @@ type MenuGroup = {
 };
 
 const MOBILE_ONLY_BREAK_TOKEN = "[[mobile-break]]";
+const DESKTOP_ONLY_BREAK_TOKEN = "[[desktop-break]]";
 
 const menuCardText = {
   subtitleWrap: "flex flex-wrap items-baseline justify-center gap-x-3 gap-y-1 md:flex-nowrap",
@@ -63,17 +64,26 @@ function splitCourseTitle(raw: string) {
 
 function renderMultilineText(text: string) {
   return text.split("\n").map((line, index) => {
-    const segments = line.split(MOBILE_ONLY_BREAK_TOKEN);
+    const segments = line
+      .replaceAll(DESKTOP_ONLY_BREAK_TOKEN, `\n${DESKTOP_ONLY_BREAK_TOKEN}\n`)
+      .replaceAll(MOBILE_ONLY_BREAK_TOKEN, `\n${MOBILE_ONLY_BREAK_TOKEN}\n`)
+      .split("\n")
+      .filter((segment) => segment.length > 0);
 
     return (
       <span key={`${line}-${index}`}>
         {index > 0 ? <br /> : null}
-        {segments.map((segment, segmentIndex) => (
-          <span key={`${segment}-${segmentIndex}`}>
-            {segmentIndex > 0 ? <br className="md:hidden" /> : null}
-            {segment}
-          </span>
-        ))}
+        {segments.map((segment, segmentIndex) => {
+          if (segment === MOBILE_ONLY_BREAK_TOKEN) {
+            return <br key={`${segment}-${segmentIndex}`} className="md:hidden" />;
+          }
+
+          if (segment === DESKTOP_ONLY_BREAK_TOKEN) {
+            return <br key={`${segment}-${segmentIndex}`} className="hidden md:block" />;
+          }
+
+          return <span key={`${segment}-${segmentIndex}`}>{segment}</span>;
+        })}
       </span>
     );
   });
@@ -101,7 +111,7 @@ const MENU = {
       {
         title: "北京じゃないよ 3品 3,800円",
         subtitle: " プティラ Petite La course",
-        description: `Amuse-bouches（2種）、Hors-d’œuvre ／ Entrée、${MOBILE_ONLY_BREAK_TOKEN}Poisson／Viande、Café`,
+        description: `Amuse-bouches（2種）/ Hors-d’œuvre または Entrée / ${MOBILE_ONLY_BREAK_TOKEN}Poisson または ßViande / ${DESKTOP_ONLY_BREAK_TOKEN}Café`,
         anchor: "petite",
       },
     ],
@@ -113,13 +123,13 @@ const MENU = {
       {
         title: "実食！ ５品 5,000円",
         subtitle: "ジョワ Joie course",
-        description: "Amuse-bouches (3種)、Hors-d’œuvre、Entrée、Poisson／Viande、Riz、Dessert、Café",
+        description: `Amuse-bouches (3種) / Hors-d’œuvre / Entrée / ${MOBILE_ONLY_BREAK_TOKEN}Poisson または Viande / ${DESKTOP_ONLY_BREAK_TOKEN}Riz / Dessert / Café`,
         anchor: "joie",
       },
       {
         title: "戸田市 ６品 8,000円",
         subtitle: "サンキャトル Cent Quatre course",
-        description: "Amuse-bouches (3種)、Hors-d’œuvre、Entrée、Poisson、Viande、Riz、Dessert、Café",
+        description: `Amuse-bouches (3種) / Hors-d’œuvre / Entrée / Poisson / ${MOBILE_ONLY_BREAK_TOKEN}Viande / ${DESKTOP_ONLY_BREAK_TOKEN}Riz / Dessert / Café`,
         anchor: "cent-quatre",
       },
     ],
@@ -917,7 +927,7 @@ return (
   {(() => {
     const { main, count, price } = splitCourseTitle(DRINK_MENU.title);
     const { ja, en } = splitJaEnSubtitle(DRINK_MENU.subtitle);
-    const drinkHref = "/menu#drink";
+    const drinkHref = "/menu";
 
     return (
       <ScrollReveal

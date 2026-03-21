@@ -1,11 +1,30 @@
 import Link from "next/link";
 import { CONTACT_PHONE_DISPLAY, CONTACT_TEL_LINK } from "@/lib/contact";
 import {
+  RESERVATION_BUSINESS_HOURS,
   RESERVATION_BUSINESS_HOURS_TEXT,
   RESERVATION_CLOSED_TEXT,
   RESERVATION_CUTOFF_TEXT,
+  RESERVATION_WEB_HOURS,
   RESERVATION_WEB_HOURS_TEXT,
 } from "@/lib/reservation-config";
+
+function MobileHoursList({
+  items,
+}: {
+  items: readonly { label: string; time: string }[];
+}) {
+  return (
+    <div className="space-y-1 text-left md:hidden">
+      {items.map((item) => (
+        <div key={item.label} className="grid grid-cols-[4.5rem_1fr] gap-x-3">
+          <span>{item.label}</span>
+          <span>{item.time}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function InfoPage() {
   const infoSpacing = { topMobile: "76px", topDesktop: "90px", bottom: "80px" };
@@ -23,11 +42,14 @@ export default function InfoPage() {
       <div className="card space-y-4 p-6 text-[14px] leading-6 text-gray-800 md:text-base">
         <div className="space-y-1">
           <h2 className="text-xl font-semibold">営業時間</h2>
-          <p>{RESERVATION_BUSINESS_HOURS_TEXT}</p>
+          <MobileHoursList items={RESERVATION_BUSINESS_HOURS} />
+          <p className="hidden md:block">{RESERVATION_BUSINESS_HOURS_TEXT}</p>
         </div>
         <div className="space-y-1">
-          <h2 className="text-xl font-semibold">Web予約</h2>
-          <p>{RESERVATION_WEB_HOURS_TEXT}</p>
+          <h2 className="text-xl font-semibold md:hidden">Web予約時間</h2>
+          <h2 className="hidden text-xl font-semibold md:block">Web予約</h2>
+          <MobileHoursList items={RESERVATION_WEB_HOURS} />
+          <p className="hidden md:block">{RESERVATION_WEB_HOURS_TEXT}</p>
           <p>{RESERVATION_CUTOFF_TEXT}</p>
         </div>
         <div className="space-y-1">

@@ -1,6 +1,7 @@
-import Image from "next/image";
+import { Socket } from "node:net";
 import { Tangerine } from "next/font/google";
 import { prisma } from "@/lib/prisma";
+import { GalleryViewer } from "@/components/gallery-viewer";
 
 export const dynamic = "force-dynamic";
 
@@ -105,10 +106,37 @@ function sortGalleryPhotos(a: GalleryPhoto, b: GalleryPhoto) {
   return a.caption.localeCompare(b.caption, "ja");
 }
 
+async function canReachDatabase(databaseUrl: string | undefined) {
+  if (!databaseUrl || !/^(postgres|postgresql):\/\//.test(databaseUrl)) {
+    return false;
+  }
+
+  try {
+    const { hostname, port } = new URL(databaseUrl);
+    const socket = new Socket();
+
+    return await new Promise((resolve) => {
+      const finish = (result: boolean) => {
+        socket.removeAllListeners();
+        socket.destroy();
+        resolve(result);
+      };
+
+      socket.setTimeout(400);
+      socket.once("connect", () => finish(true));
+      socket.once("timeout", () => finish(false));
+      socket.once("error", () => finish(false));
+      socket.connect(Number(port || "5432"), hostname);
+    });
+  } catch {
+    return false;
+  }
+}
+
 export default async function PhotosPage() {
   const photosTopPaddingMobile = "70px";
   const photosTopPaddingDesktop = "124px";
-  const canQueryDatabase = /^(postgres|postgresql):\/\//.test(process.env.DATABASE_URL ?? "");
+  const canQueryDatabase = await canReachDatabase(process.env.DATABASE_URL);
   const dbPhotos = canQueryDatabase
     ? await prisma.photo
         .findMany({
@@ -134,6 +162,18 @@ export default async function PhotosPage() {
     ...normalizedDbPhotos,
     ...FALLBACK_PHOTOS.filter((photo) => !existingUrls.has(photo.url)),
   ];
+  const gallerySections = PHOTO_CATEGORIES.map((category) => ({
+    key: category.key,
+    label: category.label,
+    items: galleryPhotos
+      .filter((photo) => photo.category === category.key)
+      .sort(sortGalleryPhotos)
+      .map((photo) => ({
+        id: photo.id,
+        url: photo.url,
+        caption: photo.caption,
+      })),
+  }));
 
   return (
     <div
@@ -156,38 +196,7 @@ export default async function PhotosPage() {
           GALLERY
         </h1>
       </header>
-      {PHOTO_CATEGORIES.map((category) => {
-        const items = galleryPhotos
-          .filter((photo) => photo.category === category.key)
-          .sort(sortGalleryPhotos);
-
-        return (
-          <section key={category.key} className="space-y-3">
-            <h2 className="text-xl font-semibold text-[#2f1b0f]">
-              {category.label}
-            </h2>
-            {items.length === 0 ? (
-              <p className="text-sm text-gray-600">写真準備中です。</p>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-3">
-                {items.map((p) => (
-                  <div key={p.id} className="space-y-2">
-                    <div className="relative aspect-[4/3] w-full overflow-hidden">
-                      <Image
-                        src={p.url}
-                        alt={p.caption}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                    <p className="text-sm text-gray-700">{p.caption}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        );
-      })}
+      <GalleryViewer sections={gallerySections} />
     </div>
   );
 }

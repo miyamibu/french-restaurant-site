@@ -184,20 +184,43 @@ export function ReserveForm({
       selectedInitialServicePeriod,
     [form.arrivalTime, form.course, selectedInitialServicePeriod]
   );
+  const selectableServicePeriodsForSelectedDate = useMemo(() => {
+    const selectablePeriods = servicePeriods.filter((period) => {
+      const daily = monthlyAvailabilityByPeriod[period][form.date] ?? null;
+      return daily == null || !nonSelectableReasons.has(daily.reason);
+    });
+
+    return selectablePeriods.length > 0 ? selectablePeriods : servicePeriods;
+  }, [form.date, monthlyAvailabilityByPeriod]);
   const courseOptions = useMemo(
     () => getReservationCoursesForServicePeriod(currentServicePeriod),
     [currentServicePeriod]
   );
   const arrivalTimeOptions = useMemo(
     () =>
-      getReservationSlotGroups().flatMap((group) =>
-        group.slots.map((time) => ({
-          value: time,
-          label: `${group.label} ${time}`,
-        }))
-      ),
-    []
+      getReservationSlotGroups()
+        .filter((group) => selectableServicePeriodsForSelectedDate.includes(group.key))
+        .flatMap((group) =>
+          group.slots.map((time) => ({
+            value: time,
+            label: `${group.label} ${time}`,
+          }))
+        ),
+    [selectableServicePeriodsForSelectedDate]
   );
+  const selectedDateServiceStatus = useMemo(() => {
+    const lunch = monthlyAvailabilityByPeriod.LUNCH[form.date] ?? null;
+    const dinner = monthlyAvailabilityByPeriod.DINNER[form.date] ?? null;
+    const lunchSelectable = lunch == null || !nonSelectableReasons.has(lunch.reason);
+    const dinnerSelectable = dinner == null || !nonSelectableReasons.has(dinner.reason);
+
+    return {
+      lunch,
+      dinner,
+      isDinnerOnly: !lunchSelectable && dinnerSelectable,
+      isLunchOnly: lunchSelectable && !dinnerSelectable,
+    };
+  }, [form.date, monthlyAvailabilityByPeriod]);
   const dayLabels = ["日", "月", "火", "水", "木", "金", "土"] as const;
 
   async function loadDailyAvailability(
@@ -598,6 +621,13 @@ export function ReserveForm({
                   const dailyStates = servicePeriods
                     .map((period) => getDateAvailability(cell.value, period))
                     .filter((daily): daily is AvailabilityState => daily != null);
+                  const lunchDaily = getDateAvailability(cell.value, "LUNCH");
+                  const dinnerDaily = getDateAvailability(cell.value, "DINNER");
+                  const lunchSelectable =
+                    lunchDaily == null || !nonSelectableReasons.has(lunchDaily.reason);
+                  const dinnerSelectable =
+                    dinnerDaily == null || !nonSelectableReasons.has(dinnerDaily.reason);
+                  const isDinnerOnlyDay = !lunchSelectable && dinnerSelectable;
                   const hasBookablePeriod = dailyStates.some((daily) => daily.webBookable);
                   const hasPhoneOnlyPeriod = dailyStates.some((daily) => daily.reason === "PHONE_ONLY");
                   const isClosedDay =
@@ -608,7 +638,9 @@ export function ReserveForm({
                       dailyStates.every((daily) => nonSelectableReasons.has(daily.reason)));
 
                   let markerText = "";
-                  if (hasBookablePeriod) {
+                  if (isDinnerOnlyDay) {
+                    markerText = "夜のみ";
+                  } else if (hasBookablePeriod) {
                     markerText = "○";
                   } else if (hasPhoneOnlyPeriod) {
                     markerText = "△";
@@ -617,15 +649,19 @@ export function ReserveForm({
                   }
 
                   const markerFontSize =
-                    markerText === "△"
+                    markerText === "夜のみ"
+                      ? 10
+                      : markerText === "△"
                       ? calendarDayCallMarkerFontSize
                       : calendarDayMarkerNormalFontSize;
                   const markerFontWeight =
-                    markerText === "△"
+                    markerText === "夜のみ"
+                      ? 700
+                      : markerText === "△"
                       ? calendarDayCallMarkerFontWeight
                       : calendarDayMarkerNormalFontWeight;
                   const markerColor =
-                    markerText === "△" || markerText === "休" ? "#b32626" : "#c7a357";
+                    markerText === "△" || markerText === "休" ? "#b32626" : "#7a5528";
 
                   return (
                     <div
@@ -712,6 +748,11 @@ export function ReserveForm({
                     </option>
                   ))}
                 </select>
+                {selectedDateServiceStatus.isDinnerOnly ? (
+                  <p className="text-xs text-[#8f2a2a]">
+                    ランチは貸し切り営業のため、ディナーのみご予約いただけます。
+                  </p>
+                ) : null}
               </div>
 
               <div className="grid min-w-0" style={{ rowGap: `${fieldLabelGap}px` }}>

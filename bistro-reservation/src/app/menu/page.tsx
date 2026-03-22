@@ -308,35 +308,60 @@ export default function MenuPage() {
             ))}
           </div>
 
-          <div
-            role="tablist"
-            aria-label="メニューコース"
-            className="mx-auto grid w-fit grid-cols-[auto_auto] justify-center gap-3 md:max-w-none md:flex md:flex-nowrap"
-          >
-            {courseTabs.map((course) => {
-              const isActive = course.id === activeTab;
+          <div role="tablist" aria-label="メニューコース" className="md:flex md:flex-nowrap md:justify-center md:gap-3">
+            <div className="flex justify-center gap-3 md:contents">
+              {courseTabs
+                .filter((course) => course.id === "petite")
+                .map((course) => {
+                  const isActive = course.id === activeTab;
 
-              return (
-                <button
-                  key={course.id}
-                  id={`${course.id}-tab`}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  aria-controls={`${course.id}-panel`}
-                  onClick={() => setActiveTab(course.id)}
-                  className={`inline-flex w-auto justify-center whitespace-nowrap rounded-full border-0 px-4 py-3 text-sm tracking-[0.08em] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#f0eadf]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#4a3122] md:min-w-[10.5rem] md:w-auto md:px-8 md:py-3 md:text-[1.02rem] ${
-                    course.id === "petite" ? "col-span-2 justify-self-center" : "justify-self-center"
-                  } ${
-                    isActive
-                      ? "bg-[#f0eadf] text-[#3a271b] shadow-[0_10px_20px_rgba(0,0,0,0.16)]"
-                      : "bg-transparent text-[#f5eee6] hover:bg-white/5"
-                  }`}
-                >
-                  {course.tabLabel}
-                </button>
-              );
-            })}
+                  return (
+                    <button
+                      key={course.id}
+                      id={`${course.id}-tab`}
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      aria-controls={`${course.id}-panel`}
+                      onClick={() => setActiveTab(course.id)}
+                      className={`inline-flex w-auto justify-center whitespace-nowrap rounded-full border-0 px-4 py-3 text-sm tracking-[0.08em] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#f0eadf]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#4a3122] md:min-w-[10.5rem] md:px-8 md:py-3 md:text-[1.02rem] ${
+                        isActive
+                          ? "bg-[#f0eadf] text-[#3a271b] shadow-[0_10px_20px_rgba(0,0,0,0.16)]"
+                          : "bg-transparent text-[#f5eee6] hover:bg-white/5"
+                      }`}
+                    >
+                      {course.tabLabel}
+                    </button>
+                  );
+                })}
+            </div>
+
+            <div className="mt-3 flex justify-center gap-3 md:mt-0 md:contents">
+              {courseTabs
+                .filter((course) => course.id !== "petite")
+                .map((course) => {
+                  const isActive = course.id === activeTab;
+
+                  return (
+                    <button
+                      key={course.id}
+                      id={`${course.id}-tab`}
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      aria-controls={`${course.id}-panel`}
+                      onClick={() => setActiveTab(course.id)}
+                      className={`inline-flex w-auto justify-center whitespace-nowrap rounded-full border-0 px-4 py-3 text-sm tracking-[0.08em] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#f0eadf]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#4a3122] md:min-w-[10.5rem] md:px-8 md:py-3 md:text-[1.02rem] ${
+                        isActive
+                          ? "bg-[#f0eadf] text-[#3a271b] shadow-[0_10px_20px_rgba(0,0,0,0.16)]"
+                          : "bg-transparent text-[#f5eee6] hover:bg-white/5"
+                      }`}
+                    >
+                      {course.tabLabel}
+                    </button>
+                  );
+                })}
+            </div>
           </div>
 
           <div className="mt-9 grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-start md:gap-12">

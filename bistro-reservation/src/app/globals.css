@@ -169,7 +169,7 @@ a:hover {
 @media (max-width: 767px) {
   .menu-tab-heading .menu-tab-badge,
   .menu-tab-heading .menu-tab-pill {
-    left: calc(50% + 4.45em);
+    left: calc(50% + 4.45em + 0.2cm);
     font-size: 0.62rem;
   }
 

@@ -42,7 +42,7 @@ export function GET(request: Request) {
         },
         notes: [
           "servicePeriod must be LUNCH or DINNER and must match arrivalTime.",
-          "Lunch web reservations accept 11:00-13:30 and dinner accepts 17:30-20:00.",
+          "Lunch web reservations accept 11:00-12:30 and dinner accepts 17:30-19:30.",
           "Web reservations close at 22:00 JST on the previous day.",
           "Availability APIs require date/month plus servicePeriod and partySize.",
           "Parties of 9 or more are always phone-only.",

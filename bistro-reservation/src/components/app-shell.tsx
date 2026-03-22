@@ -6,6 +6,7 @@ import { TopNav } from "@/components/top-nav";
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isOrdersDashboard = pathname === "/dashboard/orders";
+  const isMenuRoute = pathname === "/menu" || pathname.startsWith("/menu/");
   const hideTopNav = isOrdersDashboard || pathname === "/admin/reservations";
   const isBookingRoute = pathname === "/booking" || pathname.startsWith("/booking/");
   const showMobileHeaderGoldBand = pathname === "/";
@@ -25,8 +26,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname.startsWith("/access/") ||
     pathname === "/on-line-store" ||
     pathname.startsWith("/on-line-store/");
+
+  const shellWidthClass = isMenuRoute ? "max-w-[1680px]" : "max-w-6xl";
+  const headerWidthClass = isMenuRoute ? "max-w-[1680px]" : "max-w-6xl";
   return (
-    <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col bg-white px-4 py-0 [--header-h:58px] md:[--header-h:92px]">
+    <div
+      className={`relative mx-auto flex min-h-screen ${shellWidthClass} flex-col bg-white px-4 py-0 [--header-h:58px] md:[--header-h:92px]`}
+    >
       {hideTopNav ? null : (
         <>
         {showMobileHeaderGoldBand ? (
@@ -41,7 +47,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         ) : null}
         <header className="pointer-events-none fixed inset-x-0 top-0 z-[120] h-[var(--header-h)]">
-          <div className="relative mx-auto flex h-full max-w-6xl items-start px-4 pt-[2px] md:items-center md:pt-0">
+          <div
+            className={`relative mx-auto flex h-full ${headerWidthClass} items-start px-4 pt-[2px] md:items-center md:pt-0`}
+          >
             <TopNav />
           </div>
         </header>

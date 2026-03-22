@@ -20,7 +20,7 @@ Reservation:
 - Optional handoff review URL: /booking?mode=agent&date=YYYY-MM-DD&servicePeriod=LUNCH|DINNER&partySize=2&arrivalTime=18:00&course=...
 - servicePeriod must be LUNCH or DINNER and must match arrivalTime.
 - Web reservations close at 22:00 JST on the previous day.
-- Lunch web reservations accept 11:00-13:30. Dinner web reservations accept 17:30-20:00.
+- Lunch web reservations accept 11:00-12:30. Dinner web reservations accept 17:30-19:30.
 - Availability APIs require servicePeriod and partySize.
 - Parties of 9 or more are phone-only.
 - Reservations are closed on Mondays and Tuesdays.

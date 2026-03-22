@@ -36,3 +36,4 @@ _tmp*
 
 # Local environment file example
 # .env.example
+.vercel

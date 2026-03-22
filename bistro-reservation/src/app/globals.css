@@ -140,28 +140,28 @@ a:hover {
 .menu-tab-heading .menu-tab-badge,
 .menu-tab-heading .menu-tab-pill {
   position: absolute;
-  left: calc(50% + 5.3em);
+  left: calc(50% + 5.15em);
   top: 50%;
   transform: translateY(-50%);
-  font-size: 0.56rem;
-  letter-spacing: 0.2em;
-  color: #b8975a;
+  font-size: 0.82rem;
+  letter-spacing: 0.16em;
+  color: #d7b06c;
   white-space: nowrap;
 }
 
 .menu-tab-heading .menu-tab-badge {
-  left: calc(50% + 5em);
+  left: calc(50% + 4.95em);
 }
 
 .menu-tab-heading .menu-tab-or {
-  margin: 0 0.4em;
-  font-size: 0.66rem;
-  letter-spacing: 0.2em;
-  color: #9a8a77;
+  margin: 0 0.5em;
+  font-size: 0.92rem;
+  letter-spacing: 0.16em;
+  color: #cfbeab;
 }
 
 .menu-tab-linklike {
-  color: #d4b07a;
+  color: #e2ba78;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
@@ -169,7 +169,11 @@ a:hover {
 @media (max-width: 767px) {
   .menu-tab-heading .menu-tab-badge,
   .menu-tab-heading .menu-tab-pill {
-    left: calc(50% + 4.75em);
-    font-size: 0.5rem;
+    left: calc(50% + 4.45em);
+    font-size: 0.62rem;
+  }
+
+  .menu-tab-heading .menu-tab-or {
+    font-size: 0.72rem;
   }
 }

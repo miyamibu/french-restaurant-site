@@ -20,12 +20,12 @@ describe("Availability Rules", () => {
   describe("isArrivalTimeValid", () => {
     it("accepts valid lunch reservation slots", () => {
       expect(isArrivalTimeValid("11:00", "LUNCH")).toBe(true);
-      expect(isArrivalTimeValid("13:30", "LUNCH")).toBe(true);
+      expect(isArrivalTimeValid("12:30", "LUNCH")).toBe(true);
     });
 
     it("accepts valid dinner reservation slots", () => {
       expect(isArrivalTimeValid("17:30", "DINNER")).toBe(true);
-      expect(isArrivalTimeValid("20:00", "DINNER")).toBe(true);
+      expect(isArrivalTimeValid("19:30", "DINNER")).toBe(true);
     });
 
     it("rejects slots outside the configured reservation windows", () => {
@@ -97,8 +97,6 @@ describe("Availability Rules", () => {
         "11:30",
         "12:00",
         "12:30",
-        "13:00",
-        "13:30",
       ]);
     });
 
@@ -109,7 +107,6 @@ describe("Availability Rules", () => {
         "18:30",
         "19:00",
         "19:30",
-        "20:00",
       ]);
     });
   });

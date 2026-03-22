@@ -3,13 +3,7 @@ export const RESERVATION_CONFIG = {
   openingDate: "2026-04-03",
   closedWeekdays: [1, 2] as const,
   closedWeekdayLabels: ["月曜日", "火曜日"] as const,
-  closedDates: [] as const,
-  closedServicePeriods: [
-    {
-      date: "2026-04-25",
-      servicePeriod: "LUNCH",
-    },
-  ] as const,
+  closedDates: ["2026-04-25"] as const,
   specialOpenDates: [] as string[],
   bookingWindowMonths: 3,
   bookingCutoff: {
@@ -26,7 +20,7 @@ export const RESERVATION_CONFIG = {
       },
       reservationHours: {
         start: "11:00",
-        end: "13:30",
+        end: "12:30",
       },
       slotMinutes: 30,
     },
@@ -38,7 +32,7 @@ export const RESERVATION_CONFIG = {
       },
       reservationHours: {
         start: "17:30",
-        end: "20:00",
+        end: "19:30",
       },
       lastOrderTime: "21:00",
       slotMinutes: 30,
@@ -98,8 +92,8 @@ export const RESERVATION_BUSINESS_HOURS = [
 ] as const;
 
 export const RESERVATION_WEB_HOURS = [
-  { label: "ランチ", time: "11:00-13:30" },
-  { label: "ディナー", time: "17:30-20:00" },
+  { label: "ランチ", time: "11:00-12:30" },
+  { label: "ディナー", time: "17:30-19:30" },
 ] as const;
 
 export const RESERVATION_BUSINESS_HOURS_TEXT =

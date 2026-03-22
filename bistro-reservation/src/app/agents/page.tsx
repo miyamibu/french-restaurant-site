@@ -56,7 +56,7 @@ export default function AgentsPage() {
                 <li>Optional header: `X-Requested-With: XMLHttpRequest`</li>
                 <li>`servicePeriod` must be `LUNCH` or `DINNER` and must match `arrivalTime`.</li>
                 <li>Closed weekdays: Monday and Tuesday</li>
-                <li>Lunch web reservations: 11:00-13:30 / Dinner: 17:30-20:00</li>
+                <li>Lunch web reservations: 11:00-12:30 / Dinner: 17:30-19:30</li>
                 <li>Web booking cutoff: previous day 22:00 JST</li>
                 <li>Availability APIs require `servicePeriod` and `partySize`.</li>
                 <li>Parties of 9 or more are always phone-only.</li>

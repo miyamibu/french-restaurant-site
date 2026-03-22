@@ -311,7 +311,7 @@ export default function MenuPage() {
           <div
             role="tablist"
             aria-label="メニューコース"
-            className="flex flex-wrap justify-center gap-3 md:flex-nowrap"
+            className="mx-auto grid max-w-[16.5rem] grid-cols-2 justify-items-center gap-3 md:max-w-none md:flex md:flex-nowrap"
           >
             {courseTabs.map((course) => {
               const isActive = course.id === activeTab;
@@ -325,7 +325,9 @@ export default function MenuPage() {
                   aria-selected={isActive}
                   aria-controls={`${course.id}-panel`}
                   onClick={() => setActiveTab(course.id)}
-                  className={`w-[6.8rem] whitespace-nowrap rounded-full border-0 px-4 py-3 text-sm tracking-[0.08em] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#f0eadf]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#4a3122] md:min-w-[10.5rem] md:w-auto md:px-8 md:py-3 md:text-[1.02rem] ${
+                  className={`w-[7.4rem] whitespace-nowrap rounded-full border-0 px-4 py-3 text-sm tracking-[0.08em] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#f0eadf]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#4a3122] md:min-w-[10.5rem] md:w-auto md:px-8 md:py-3 md:text-[1.02rem] ${
+                    course.id === "petite" ? "col-span-2" : ""
+                  } ${
                     isActive
                       ? "bg-[#f0eadf] text-[#3a271b] shadow-[0_10px_20px_rgba(0,0,0,0.16)]"
                       : "bg-transparent text-[#f5eee6] hover:bg-white/5"
@@ -348,7 +350,7 @@ export default function MenuPage() {
               <div className="mx-auto max-w-[48rem] md:translate-x-[2cm]">
                 <header className="mb-7 text-center md:mb-9">
                   <h2
-                    className={`font-["Cormorant_Garamond","Noto_Serif_JP","Yu_Mincho","Hiragino_Mincho_ProN",serif] text-[2.2rem] font-light tracking-[0.18em] text-[#f6efe6] md:text-[3.25rem] ${
+                    className={`whitespace-nowrap font-["Cormorant_Garamond","Noto_Serif_JP","Yu_Mincho","Hiragino_Mincho_ProN",serif] text-[2.2rem] font-light tracking-[0.18em] text-[#f6efe6] md:text-[3.25rem] ${
                       activeCourse.id === "joie" ? "translate-x-[0.2cm]" : ""
                     }`}
                   >

@@ -375,7 +375,7 @@ export default function MenuPage() {
               <div className="mx-auto w-full max-w-[48rem] md:translate-x-[2cm]">
                 <header className="mb-7 text-center md:mb-9">
                   <h2
-                    className={`font-["Cormorant_Garamond","Noto_Serif_JP","Yu_Mincho","Hiragino_Mincho_ProN",serif] text-[2.2rem] font-light tracking-[0.18em] text-[#f6efe6] md:whitespace-nowrap md:text-[3.25rem] ${
+                    className={`whitespace-nowrap font-["Cormorant_Garamond","Noto_Serif_JP","Yu_Mincho","Hiragino_Mincho_ProN",serif] text-[2rem] font-light tracking-[0.12em] text-[#f6efe6] md:text-[3.25rem] md:tracking-[0.18em] ${
                       activeCourse.id === "joie" ? "md:translate-x-[0.2cm]" : ""
                     }`}
                   >

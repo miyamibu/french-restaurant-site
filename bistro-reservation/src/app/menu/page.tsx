@@ -311,7 +311,7 @@ export default function MenuPage() {
           <div
             role="tablist"
             aria-label="メニューコース"
-            className="mx-auto grid max-w-[16.5rem] grid-cols-2 justify-items-center gap-3 md:max-w-none md:flex md:flex-nowrap"
+            className="mx-auto grid w-fit grid-cols-[auto_auto] justify-center gap-3 md:max-w-none md:flex md:flex-nowrap"
           >
             {courseTabs.map((course) => {
               const isActive = course.id === activeTab;
@@ -325,23 +325,15 @@ export default function MenuPage() {
                   aria-selected={isActive}
                   aria-controls={`${course.id}-panel`}
                   onClick={() => setActiveTab(course.id)}
-                  className={`w-[7.4rem] whitespace-nowrap rounded-full border-0 px-4 py-3 text-sm tracking-[0.08em] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#f0eadf]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#4a3122] md:min-w-[10.5rem] md:w-auto md:px-8 md:py-3 md:text-[1.02rem] ${
-                    course.id === "petite" ? "col-span-2" : ""
+                  className={`inline-flex w-auto justify-center whitespace-nowrap rounded-full border-0 px-4 py-3 text-sm tracking-[0.08em] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#f0eadf]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#4a3122] md:min-w-[10.5rem] md:w-auto md:px-8 md:py-3 md:text-[1.02rem] ${
+                    course.id === "petite" ? "col-span-2 justify-self-center" : "justify-self-center"
                   } ${
                     isActive
                       ? "bg-[#f0eadf] text-[#3a271b] shadow-[0_10px_20px_rgba(0,0,0,0.16)]"
                       : "bg-transparent text-[#f5eee6] hover:bg-white/5"
                   }`}
                 >
-                  <span
-                    className={
-                      course.id === "cent-quatre"
-                        ? "relative left-[0.04rem] inline-block text-[0.82rem] tracking-[0.01em] md:left-0 md:text-[1.02rem] md:tracking-[0.08em]"
-                        : ""
-                    }
-                  >
-                    {course.tabLabel}
-                  </span>
+                  {course.tabLabel}
                 </button>
               );
             })}

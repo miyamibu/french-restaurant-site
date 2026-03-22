@@ -58,7 +58,7 @@ const courseTabs: readonly CourseTab[] = [
         headingHtml: '一口前菜<span class="menu-tab-badge">　2 種</span>',
       },
       {
-        headingHtml: '前菜<span class="menu-tab-pill">月替わり</span>',
+        headingHtml: '前菜&nbsp;<span class="menu-tab-pill">月替わり</span>',
         altHtml: "お好みに合わせて、別の前菜もお選びいただけます",
         detailLink: { href: "/hors-doeuvre?from=petite" },
       },
@@ -83,12 +83,12 @@ const courseTabs: readonly CourseTab[] = [
         headingHtml: '一口前菜<span class="menu-tab-badge">　3 種</span>',
       },
       {
-        headingHtml: '冷製前菜<span class="menu-tab-pill">月替わり</span>',
+        headingHtml: '冷製前菜&nbsp;<span class="menu-tab-pill">月替わり</span>',
         altHtml: "お好みに合わせて、別の前菜もお選びいただけます",
         detailLink: { href: "/hors-doeuvre?from=joie", mobileOnly: true },
       },
       {
-        headingHtml: '温製前菜<span class="menu-tab-pill">月替わり</span>',
+        headingHtml: '温製前菜&nbsp;<span class="menu-tab-pill">月替わり</span>',
         note: "お好みに合わせて、別の前菜もお選びいただけます",
         detailLink: { href: "/hors-doeuvre?from=joie", mobileOnly: true },
       },
@@ -117,12 +117,12 @@ const courseTabs: readonly CourseTab[] = [
         headingHtml: '一口前菜<span class="menu-tab-badge">　3 種</span>',
       },
       {
-        headingHtml: '冷製前菜<span class="menu-tab-pill">月替わり</span>',
+        headingHtml: '冷製前菜&nbsp;<span class="menu-tab-pill">月替わり</span>',
         altHtml: "お好みに合わせて、別の前菜もお選びいただけます",
         detailLink: { href: "/hors-doeuvre?from=cent-quatre", mobileOnly: true },
       },
       {
-        headingHtml: '温製前菜<span class="menu-tab-pill">月替わり</span>',
+        headingHtml: '温製前菜&nbsp;<span class="menu-tab-pill">月替わり</span>',
         note: "お好みに合わせて、別の前菜もお選びいただけます",
         detailLink: { href: "/hors-doeuvre?from=cent-quatre", mobileOnly: true },
       },
@@ -351,7 +351,7 @@ export default function MenuPage() {
                 <header className="mb-7 text-center md:mb-9">
                   <h2
                     className={`whitespace-nowrap font-["Cormorant_Garamond","Noto_Serif_JP","Yu_Mincho","Hiragino_Mincho_ProN",serif] text-[2.2rem] font-light tracking-[0.18em] text-[#f6efe6] md:text-[3.25rem] ${
-                      activeCourse.id === "joie" ? "translate-x-[0.2cm]" : ""
+                      activeCourse.id === "joie" ? "md:translate-x-[0.2cm]" : ""
                     }`}
                   >
                     {activeCourse.heading}

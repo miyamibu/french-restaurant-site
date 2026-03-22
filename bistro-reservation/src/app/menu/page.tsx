@@ -1,5 +1,6 @@
 "use client";
 
+import type { Route } from "next";
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
@@ -32,7 +33,7 @@ type CourseMenuItem = {
   note?: string;
   altHtml?: string;
   detailLink?: {
-    href: string;
+    href: Route;
     mobileOnly?: boolean;
   };
 };

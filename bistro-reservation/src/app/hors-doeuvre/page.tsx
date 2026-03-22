@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import type { Route } from "next";
 import { Noto_Serif_JP } from "next/font/google";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
@@ -74,9 +74,14 @@ function ScrollReveal({
 }
 
 export default function HorsDoeuvrePage() {
-  const searchParams = useSearchParams();
-  const from = searchParams.get("from");
-  const backHref = from && validReturnTabs.has(from) ? `/menu#${from}` : "/menu";
+  const [backHref, setBackHref] = useState<Route>("/menu");
+
+  useEffect(() => {
+    const from = new URLSearchParams(window.location.search).get("from");
+    if (from && validReturnTabs.has(from)) {
+      setBackHref(`/menu#${from}` as Route);
+    }
+  }, []);
 
   return (
     <div

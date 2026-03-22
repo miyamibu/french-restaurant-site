@@ -3,7 +3,12 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Tangerine } from "next/font/google";
+import {
+  appetizerSections,
+  APPETIZER_SURCHARGE_NOTE,
+} from "@/lib/appetizer-data";
 
 const tangerine = Tangerine({
   subsets: ["latin"],
@@ -26,6 +31,10 @@ type CourseMenuItem = {
   headingHtml: string;
   note?: string;
   altHtml?: string;
+  detailLink?: {
+    href: string;
+    mobileOnly?: boolean;
+  };
 };
 
 type CourseTab = {
@@ -49,8 +58,8 @@ const courseTabs: readonly CourseTab[] = [
       },
       {
         headingHtml: '前菜<span class="menu-tab-pill">月替わり</span>',
-        altHtml:
-          'お好みに合わせて、別の前菜もお選びいただけます<br /><span class="menu-tab-linklike">別の前菜を見る</span>',
+        altHtml: "お好みに合わせて、別の前菜もお選びいただけます",
+        detailLink: { href: "/hors-doeuvre?from=petite" },
       },
       {
         headingHtml: '魚料理<span class="menu-tab-or">または</span>肉料理',
@@ -75,17 +84,19 @@ const courseTabs: readonly CourseTab[] = [
       {
         headingHtml: '冷製前菜<span class="menu-tab-pill">月替わり</span>',
         altHtml: "お好みに合わせて、別の前菜もお選びいただけます",
+        detailLink: { href: "/hors-doeuvre?from=joie", mobileOnly: true },
       },
       {
         headingHtml: '温製前菜<span class="menu-tab-pill">月替わり</span>',
         note: "お好みに合わせて、別の前菜もお選びいただけます",
+        detailLink: { href: "/hors-doeuvre?from=joie", mobileOnly: true },
       },
       {
         headingHtml: '魚料理<span class="menu-tab-or">または</span>肉料理',
         note: "丁寧な仕込みでご用意しております",
       },
       {
-        headingHtml: "ご飯",
+        headingHtml: "締めの１品",
         note: "裏メニューもご用意しております",
       },
       {
@@ -107,10 +118,12 @@ const courseTabs: readonly CourseTab[] = [
       {
         headingHtml: '冷製前菜<span class="menu-tab-pill">月替わり</span>',
         altHtml: "お好みに合わせて、別の前菜もお選びいただけます",
+        detailLink: { href: "/hors-doeuvre?from=cent-quatre", mobileOnly: true },
       },
       {
         headingHtml: '温製前菜<span class="menu-tab-pill">月替わり</span>',
         note: "お好みに合わせて、別の前菜もお選びいただけます",
+        detailLink: { href: "/hors-doeuvre?from=cent-quatre", mobileOnly: true },
       },
       {
         headingHtml: "魚料理",
@@ -121,7 +134,7 @@ const courseTabs: readonly CourseTab[] = [
         note: "丁寧な仕込みでご用意しております",
       },
       {
-        headingHtml: "ご飯",
+        headingHtml: "締めの１品",
         note: "裏メニューもご用意しております",
       },
       {
@@ -175,6 +188,7 @@ export default function MenuPage() {
   const courseAnchorScrollMarginPx = topGapPx + 24;
   const activeCourse = courseTabs.find((course) => course.id === activeTab) ?? courseTabs[0];
   const hasDesktopSlide = activeCourse.id === "petite";
+  const hasAppetizerPanel = activeCourse.id === "joie" || activeCourse.id === "cent-quatre";
   const effectiveSlideHeightPx = panelHeightPx || DESKTOP_SLIDE_HEIGHT_PX;
   const effectiveSlideWidthPx = panelWidthPx || DESKTOP_SLIDE_WIDTH_PX;
   const desktopSlideHeight = `${effectiveSlideHeightPx}px`;
@@ -362,17 +376,28 @@ export default function MenuPage() {
                           } ${isCoffeeLine ? "-translate-y-[0.1cm]" : ""}`}
                           dangerouslySetInnerHTML={{ __html: item.headingHtml }}
                         />
-                      {item.note ? (
-                        <p className="mt-2 text-center text-[0.88rem] leading-7 tracking-[0.08em] text-[#b6a48f] md:text-[0.94rem]">
-                          {item.note}
-                        </p>
-                      ) : null}
-                      {item.altHtml ? (
-                        <div
-                          className="menu-tab-alt mt-1 pt-4 text-center text-[0.82rem] leading-8 tracking-[0.08em] text-[#b6a48f] md:text-[0.88rem]"
-                          dangerouslySetInnerHTML={{ __html: item.altHtml }}
-                        />
-                      ) : null}
+                        {item.note ? (
+                          <p className="mt-2 text-center text-[0.88rem] leading-7 tracking-[0.08em] text-[#b6a48f] md:text-[0.94rem]">
+                            {item.note}
+                          </p>
+                        ) : null}
+                        {item.altHtml ? (
+                          <div
+                            className="menu-tab-alt mt-1 pt-4 text-center text-[0.82rem] leading-8 tracking-[0.08em] text-[#b6a48f] md:text-[0.88rem]"
+                            dangerouslySetInnerHTML={{ __html: item.altHtml }}
+                          />
+                        ) : null}
+                        {item.detailLink ? (
+                          <div
+                            className={`mt-2 text-center text-[0.82rem] leading-8 tracking-[0.08em] md:text-[0.88rem] ${
+                              item.detailLink.mobileOnly ? "md:hidden" : ""
+                            }`}
+                          >
+                            <Link href={item.detailLink.href} className="menu-tab-linklike">
+                              別の前菜を見る
+                            </Link>
+                          </div>
+                        ) : null}
                       </li>
                     );
                   })}
@@ -380,18 +405,16 @@ export default function MenuPage() {
               </div>
             </article>
 
-            <aside
-              className={`relative hidden self-start overflow-hidden bg-[#1b1410]/28 shadow-[0_24px_80px_rgba(0,0,0,0.16)] md:sticky md:block ${
-                hasDesktopSlide ? "" : "pointer-events-none opacity-0"
-              }`}
-              aria-hidden={!hasDesktopSlide}
-              style={{
-                height: desktopSlideHeight,
-                width: desktopSlideWidth,
-                top: desktopSlideTop,
-                borderRadius: `${PANEL_RADIUS_PX}px`,
-              }}
-            >
+            {hasDesktopSlide ? (
+              <aside
+                className="relative hidden self-start overflow-hidden bg-[#1b1410]/28 shadow-[0_24px_80px_rgba(0,0,0,0.16)] md:sticky md:block"
+                style={{
+                  height: desktopSlideHeight,
+                  width: desktopSlideWidth,
+                  top: desktopSlideTop,
+                  borderRadius: `${PANEL_RADIUS_PX}px`,
+                }}
+              >
                 {activeCourse.photos.map((src, index) => {
                   const isActive = index === activeSlideIndex;
 
@@ -424,7 +447,84 @@ export default function MenuPage() {
                     />
                   ))}
                 </div>
-            </aside>
+              </aside>
+            ) : null}
+
+            {hasAppetizerPanel ? (
+              <aside
+                className="hidden self-start md:sticky md:block"
+                style={{
+                  top: desktopSlideTop,
+                  width: desktopSlideWidth,
+                  marginLeft: "-1.5cm",
+                }}
+              >
+                <div
+                  className="overflow-hidden px-10 py-10"
+                  style={{
+                    borderRadius: `${PANEL_RADIUS_PX}px`,
+                    background: "transparent",
+                    border: "none",
+                    boxShadow: "none",
+                    backdropFilter: "none",
+                  }}
+                >
+                  <div className="mb-8 text-center">
+                    <p className="text-[0.72rem] uppercase tracking-[0.4em] text-[#cca35d]">
+                      Grand Menu
+                    </p>
+                    <p className="mt-1 text-[1.15rem] font-semibold tracking-[0.14em] text-[#f5f0e8]">
+                      前菜をお選びください
+                    </p>
+                    <div className="mt-4 flex items-center justify-center gap-3 text-[#cca35d]">
+                      <span className="h-px w-12 bg-gradient-to-r from-transparent to-current" />
+                      <span className="h-[5px] w-[5px] rotate-45 bg-current" />
+                      <span className="h-px w-12 bg-gradient-to-l from-transparent to-current" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-8">
+                    {appetizerSections.map((section, sectionIndex) => (
+                      <div key={section.label}>
+                        <p className="mb-3 text-center text-[0.75rem] uppercase tracking-[0.32em] text-[#cca35d]">
+                          {section.frenchLabel}
+                        </p>
+                        <p className="mb-4 text-center text-[0.95rem] font-semibold tracking-[0.12em] text-[#f5f0e8]">
+                          {section.label}
+                        </p>
+                        <div className="mx-auto mb-5 h-px w-10 bg-[rgba(200,153,77,0.35)]" />
+
+                        <ul className="space-y-4">
+                          {section.dishes.map((dish) => (
+                            <li
+                              key={dish.name}
+                              className="flex flex-wrap items-baseline justify-center gap-x-2 gap-y-0.5 text-center"
+                            >
+                              <span className="text-[0.92rem] leading-[1.6] tracking-[0.06em] text-[#f0ebe2]">
+                                {dish.name}
+                              </span>
+                              {dish.surcharge != null ? (
+                                <span className="whitespace-nowrap text-[0.78rem] tracking-[0.1em] text-[#cca35d]">
+                                  +{dish.surcharge.toLocaleString()}円
+                                </span>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+
+                        {sectionIndex < appetizerSections.length - 1 ? (
+                          <div className="mx-auto mt-8 h-px w-[calc(100%-4cm)] bg-[rgba(138,104,60,0.28)]" />
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+
+                  <p className="mt-8 text-center text-[0.72rem] leading-[1.8] tracking-[0.08em] text-[#9a8878]">
+                    {APPETIZER_SURCHARGE_NOTE}
+                  </p>
+                </div>
+              </aside>
+            ) : null}
           </div>
         </section>
       </div>

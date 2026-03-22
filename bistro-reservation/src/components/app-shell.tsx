@@ -16,6 +16,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     isBookingRoute ||
     pathname === "/menu" ||
     pathname.startsWith("/menu/") ||
+    pathname === "/hors-doeuvre" ||
+    pathname.startsWith("/hors-doeuvre/") ||
     pathname === "/picture" ||
     pathname.startsWith("/picture/") ||
     pathname === "/contact" ||

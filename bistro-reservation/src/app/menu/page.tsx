@@ -333,7 +333,15 @@ export default function MenuPage() {
                       : "bg-transparent text-[#f5eee6] hover:bg-white/5"
                   }`}
                 >
-                  {course.tabLabel}
+                  <span
+                    className={
+                      course.id === "cent-quatre"
+                        ? "relative left-[0.04rem] inline-block text-[0.82rem] tracking-[0.01em] md:left-0 md:text-[1.02rem] md:tracking-[0.08em]"
+                        : ""
+                    }
+                  >
+                    {course.tabLabel}
+                  </span>
                 </button>
               );
             })}

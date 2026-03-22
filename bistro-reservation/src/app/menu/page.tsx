@@ -372,10 +372,10 @@ export default function MenuPage() {
               aria-labelledby={`${activeCourse.id}-tab`}
               className="rounded-[2.2rem] border-0 bg-transparent px-7 py-8 text-[#f5f0e8] shadow-none md:px-14 md:pt-14 md:pb-[0.6rem]"
             >
-              <div className="mx-auto max-w-[48rem] md:translate-x-[2cm]">
+              <div className="mx-auto w-full max-w-[48rem] md:translate-x-[2cm]">
                 <header className="mb-7 text-center md:mb-9">
                   <h2
-                    className={`whitespace-nowrap font-["Cormorant_Garamond","Noto_Serif_JP","Yu_Mincho","Hiragino_Mincho_ProN",serif] text-[2.2rem] font-light tracking-[0.18em] text-[#f6efe6] md:text-[3.25rem] ${
+                    className={`font-["Cormorant_Garamond","Noto_Serif_JP","Yu_Mincho","Hiragino_Mincho_ProN",serif] text-[2.2rem] font-light tracking-[0.18em] text-[#f6efe6] md:whitespace-nowrap md:text-[3.25rem] ${
                       activeCourse.id === "joie" ? "md:translate-x-[0.2cm]" : ""
                     }`}
                   >
@@ -392,6 +392,11 @@ export default function MenuPage() {
                   {activeCourse.items.map((item, index) => {
                     const isCenteredSingleLine = !item.note && !item.altHtml;
                     const isCoffeeLine = item.headingHtml === "コーヒー";
+                    const mobileAppetizerHeadingClass = item.detailLink
+                      ? activeCourse.id === "petite"
+                        ? "menu-tab-heading--petite-appetizer"
+                        : "menu-tab-heading--grand-appetizer"
+                      : "";
 
                     return (
                       <li
@@ -401,7 +406,7 @@ export default function MenuPage() {
                         <div
                           className={`menu-tab-heading relative text-center text-[1.48rem] font-medium leading-[1.55] tracking-[0.12em] text-[#f5f0e8] md:text-[1.78rem] ${
                             isCenteredSingleLine ? "flex items-center justify-center" : ""
-                          } ${isCoffeeLine ? "-translate-y-[0.1cm]" : ""}`}
+                          } ${mobileAppetizerHeadingClass} ${isCoffeeLine ? "-translate-y-[0.1cm]" : ""}`}
                           dangerouslySetInnerHTML={{ __html: item.headingHtml }}
                         />
                         {item.note ? (

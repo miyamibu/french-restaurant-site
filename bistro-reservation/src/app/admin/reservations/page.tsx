@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { prisma } from "@/lib/prisma";
-import { format, getDay, getDaysInMonth, startOfMonth } from "date-fns";
+import { addMonths, format, getDay, getDaysInMonth, startOfMonth, subMonths } from "date-fns";
 import { formatJst } from "@/lib/dates";
 import {
   ReservationStatus,
@@ -137,6 +137,13 @@ export default async function AdminReservations({
     params.set("date", dateStr);
     return `/admin/reservations?${params.toString()}` as Route;
   };
+  const buildMonthHref = (offset: number): Route => {
+    const monthDate =
+      offset < 0
+        ? subMonths(calendarMonthStart, Math.abs(offset))
+        : addMonths(calendarMonthStart, offset);
+    return buildDateHref(format(monthDate, "yyyy-MM-01"));
+  };
   const reservationListItems: AdminReservationListItem[] = reservations.map((reservation) => {
     const { course, note } = parseReservationNote(reservation.note);
 
@@ -165,17 +172,6 @@ export default async function AdminReservations({
         <Link href="/booking" className="text-brand-700 underline">公開予約フォーム</Link>
       </header>
 
-      <form className="card !border-0 p-4 !shadow-none flex flex-wrap gap-4" method="get">
-        <label className="text-sm text-gray-700">
-          日付
-          <input type="date" name="date" defaultValue={date} className="mt-1 block rounded border px-3 py-2" />
-        </label>
-        <div className="flex items-end">
-          <button className="btn-primary" type="submit">
-            絞り込み
-          </button>
-        </div>
-      </form>
       <p className="text-sm text-gray-600">※キャンセル済みは一覧から除外しています。</p>
       {isMockMode ? (
         <p className="text-sm text-amber-700">
@@ -203,9 +199,25 @@ export default async function AdminReservations({
       )}
 
       <div className="card border-0 p-4 shadow-none">
-        <h2 className="text-base font-semibold text-gray-800">
-          月間予約カレンダー（{format(calendarMonthStart, "yyyy年M月")}）
-        </h2>
+        <div className="grid grid-cols-7 items-center gap-2">
+          <Link
+            href={buildMonthHref(-1)}
+            aria-label="前の月へ"
+            className="justify-self-center px-2 py-1 text-[35px] font-medium leading-none text-gray-700 transition hover:text-[#2f1b0f]"
+          >
+            ←
+          </Link>
+          <h2 className="col-span-5 text-center text-base font-semibold text-gray-800">
+            月間予約カレンダー（{format(calendarMonthStart, "yyyy年M月")}）
+          </h2>
+          <Link
+            href={buildMonthHref(1)}
+            aria-label="次の月へ"
+            className="justify-self-center px-2 py-1 text-[35px] font-medium leading-none text-gray-700 transition hover:text-[#2f1b0f]"
+          >
+            →
+          </Link>
+        </div>
         <div className="mt-3 grid grid-cols-7 gap-2 text-center text-xs text-gray-600">
           {dayLabels.map((label) => (
             <div key={label}>{label}</div>

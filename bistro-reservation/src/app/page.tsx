@@ -851,26 +851,28 @@ return (
           <p className="text-xs uppercase tracking-[0.3em] text-[#b68c5a]">Menu Showcase</p>
           <h2 className="text-3xl font-semibold text-[#2f1b0f]">メニュー</h2>
         </div>
-        <div className="mt-6 flex justify-center gap-2">
-  {(["lunch", "dinner"] as const).map((k) => {
-    const active = menuKind === k;
-    return (
-      <button
-        key={k}
-        type="button"
-        onClick={() => setMenuKind(k)}
-        aria-pressed={active}
-        className={[
-          "h-10 rounded-[2px] px-6 text-sm tracking-[0.18em] transition select-none",
-          active
-            ? "bg-[#2f1b0f] text-white shadow"
-            : "bg-[#f5e7ce] text-[#2f1b0f] border border-[#cfa96d]/40 hover:brightness-[0.98]",
-        ].join(" ")}
-      >
-        {MENU[k].label}
-      </button>
-    );
-  })}
+        <div className="mt-6 flex justify-center">
+  <div className="inline-flex rounded-full border border-[#cfa96d]/45 bg-white/75 p-1 shadow-[0_10px_30px_rgba(47,27,15,0.08)] backdrop-blur-sm">
+    {(["lunch", "dinner"] as const).map((k) => {
+      const active = menuKind === k;
+      return (
+        <button
+          key={k}
+          type="button"
+          onClick={() => setMenuKind(k)}
+          aria-pressed={active}
+          className={[
+            "inline-flex h-11 w-[7.25rem] items-center justify-center rounded-full px-5 text-[13px] font-medium tracking-[0.14em] transition duration-200 select-none md:w-32",
+            active
+              ? "bg-[#2f1b0f] text-[#fffaf2] shadow-[0_8px_18px_rgba(47,27,15,0.18)]"
+              : "text-[#5a402b] hover:bg-[#f6ead3] hover:text-[#2f1b0f]",
+          ].join(" ")}
+        >
+          {MENU[k].label}
+        </button>
+      );
+    })}
+  </div>
 </div>
         <div className="relative mx-auto flex max-w-5xl flex-col items-center justify-center gap-10">
   {activeMenu.slides.map((item, index) => {

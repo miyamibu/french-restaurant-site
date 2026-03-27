@@ -3,8 +3,14 @@ import type { Route } from "next";
 import { prisma } from "@/lib/prisma";
 import { format, getDay, getDaysInMonth, startOfMonth } from "date-fns";
 import { formatJst } from "@/lib/dates";
-import { ReservationStatus } from "@prisma/client";
-import CancelButton from "@/components/cancel-button";
+import {
+  ReservationStatus,
+} from "@prisma/client";
+import {
+  AdminReservationsList,
+  type AdminReservationListItem,
+} from "@/components/admin-reservations-list";
+import { buildMockReservations } from "@/lib/admin-reservation-mock";
 import { parseReservationNote } from "@/lib/reservation-note";
 import { findReservationsCompat } from "@/lib/reservation-compat";
 
@@ -41,32 +47,49 @@ export default async function AdminReservations({
     ),
     "yyyy-MM-dd"
   );
+  const isMockMode = !process.env.DATABASE_URL;
+  const mockReservations = isMockMode
+    ? buildMockReservations(calendarMonthStart, calendarMonthDays)
+    : [];
 
-  const reservations = await findReservationsCompat(prisma, {
-    where: {
-      date,
-      status: statusFilter,
-    },
-    orderBy: [{ date: "asc" }, { createdAt: "asc" }],
-  });
-  const todayReservations = await findReservationsCompat(prisma, {
-    where: {
-      date: defaultDate,
-      status: statusFilter,
-    },
-  });
+  const reservations = isMockMode
+    ? mockReservations.filter((row) => row.date === date && row.status !== ReservationStatus.CANCELLED)
+    : await findReservationsCompat(prisma, {
+        where: {
+          date,
+          status: statusFilter,
+        },
+        orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+      });
+  const todayReservations = isMockMode
+    ? mockReservations.filter(
+        (row) => row.date === defaultDate && row.status !== ReservationStatus.CANCELLED
+      )
+    : await findReservationsCompat(prisma, {
+        where: {
+          date: defaultDate,
+          status: statusFilter,
+        },
+      });
   const todayGroupCount = todayReservations.length;
   const todayPartyTotal = todayReservations.reduce((sum, row) => sum + row.partySize, 0);
-  const monthReservations = await findReservationsCompat(prisma, {
-    where: {
-      date: {
-        gte: calendarMonthStartStr,
-        lte: calendarMonthEndStr,
-      },
-      status: statusFilter,
-    },
-    orderBy: [{ date: "asc" }, { createdAt: "asc" }],
-  });
+  const monthReservations = isMockMode
+    ? mockReservations.filter(
+        (row) =>
+          row.date >= calendarMonthStartStr &&
+          row.date <= calendarMonthEndStr &&
+          row.status !== ReservationStatus.CANCELLED
+      )
+    : await findReservationsCompat(prisma, {
+        where: {
+          date: {
+            gte: calendarMonthStartStr,
+            lte: calendarMonthEndStr,
+          },
+          status: statusFilter,
+        },
+        orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+      });
   const reservationCountByDate = monthReservations.reduce<Record<string, number>>(
     (acc, row) => {
       acc[row.date] = (acc[row.date] ?? 0) + 1;
@@ -114,6 +137,23 @@ export default async function AdminReservations({
     params.set("date", dateStr);
     return `/admin/reservations?${params.toString()}` as Route;
   };
+  const reservationListItems: AdminReservationListItem[] = reservations.map((reservation) => {
+    const { course, note } = parseReservationNote(reservation.note);
+
+    return {
+      id: reservation.id,
+      date: reservation.date,
+      servicePeriod: reservation.servicePeriod,
+      servicePeriodLabel: reservation.servicePeriod === "LUNCH" ? "ランチ" : "ディナー",
+      arrivalTime: reservation.arrivalTime ?? null,
+      course,
+      partySize: reservation.partySize,
+      name: reservation.name,
+      phone: reservation.phone,
+      request: note,
+      cancelDisabled: isMockMode || reservation.status === ReservationStatus.CANCELLED,
+    };
+  });
 
   return (
     <div className="space-y-6 pt-20 pb-10">
@@ -137,58 +177,30 @@ export default async function AdminReservations({
         </div>
       </form>
       <p className="text-sm text-gray-600">※キャンセル済みは一覧から除外しています。</p>
+      {isMockMode ? (
+        <p className="text-sm text-amber-700">
+          ローカル確認用のサンプル予約を表示しています。`DATABASE_URL` を設定すると実データに切り替わります。
+        </p>
+      ) : null}
 
-      <div className="card border-0 shadow-none overflow-hidden">
-        <table className="min-w-full">
-          <thead className="bg-gray-50 text-left text-sm text-gray-600">
-            <tr>
-              <th className="px-4 py-2">日付</th>
-              <th className="px-4 py-2">時間帯</th>
-              <th className="px-4 py-2">来店目安</th>
-              <th className="px-4 py-2">コース</th>
-              <th className="px-4 py-2">人数</th>
-              <th className="px-4 py-2">氏名</th>
-              <th className="px-4 py-2">電話</th>
-              <th className="px-4 py-2">キャンセル</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 text-sm">
-            {reservations.map((r) => {
-              const { course } = parseReservationNote(r.note);
-              return (
-                <tr key={r.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-2">{r.date}</td>
-                  <td className="px-4 py-2">{r.servicePeriod === "LUNCH" ? "ランチ" : "ディナー"}</td>
-                  <td className="px-4 py-2">{r.arrivalTime ?? "-"}</td>
-                  <td className="px-4 py-2">{course ?? "-"}</td>
-                  <td className="px-4 py-2">{r.partySize}名</td>
-                  <td className="px-4 py-2">{r.name}</td>
-                  <td className="px-4 py-2">{r.phone}</td>
-                  <td className="px-4 py-2">
-                    <CancelButton id={r.id} disabled={r.status === ReservationStatus.CANCELLED} />
-                  </td>
-                </tr>
-              );
-            })}
-            {reservations.length === 0 && (
-              <tr>
-                <td className="px-4 py-2 h-14 text-center text-gray-500" colSpan={8}>
-                  {todayGroupCount > 0 ? (
-                    <>
-                      <p className="text-sm font-medium text-gray-700">
-                        当日の予約状況（{todayGroupCount}組）
-                      </p>
-                      <p className="mt-1 text-xs text-gray-500">合計 {todayPartyTotal}名</p>
-                    </>
-                  ) : (
-                    <p className="text-sm font-medium text-gray-700">当日の予約状況：予約なし</p>
-                  )}
-                </td>
-              </tr>
+      {reservations.length > 0 ? (
+        <AdminReservationsList selectedDate={date} reservations={reservationListItems} />
+      ) : (
+        <div className="card border-0 shadow-none">
+          <div className="px-4 py-8 text-center text-gray-500">
+            {todayGroupCount > 0 ? (
+              <>
+                <p className="text-sm font-medium text-gray-700">
+                  当日の予約状況（{todayGroupCount}組）
+                </p>
+                <p className="mt-1 text-xs text-gray-500">合計 {todayPartyTotal}名</p>
+              </>
+            ) : (
+              <p className="text-sm font-medium text-gray-700">当日の予約状況：予約なし</p>
             )}
-          </tbody>
-        </table>
-      </div>
+          </div>
+        </div>
+      )}
 
       <div className="card border-0 p-4 shadow-none">
         <h2 className="text-base font-semibold text-gray-800">
@@ -234,4 +246,3 @@ export default async function AdminReservations({
     </div>
   );
 }
-

@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { StatusForm } from "@/components/status-form";
+import { formatJst } from "@/lib/dates";
+import { buildMockReservations } from "@/lib/admin-reservation-mock";
 import { parseReservationNote } from "@/lib/reservation-note";
 import { findReservationByIdCompat } from "@/lib/reservation-compat";
+import { getDaysInMonth, startOfMonth } from "date-fns";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +15,13 @@ export default async function AdminReservationDetail({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const reservation = await findReservationByIdCompat(prisma, id);
+  const reservation = !process.env.DATABASE_URL
+    ? (() => {
+        const monthStart = startOfMonth(new Date(`${formatJst(new Date())}T00:00:00`));
+        const monthDays = getDaysInMonth(monthStart);
+        return buildMockReservations(monthStart, monthDays).find((row) => row.id === id) ?? null;
+      })()
+    : await findReservationByIdCompat(prisma, id);
 
   if (!reservation) {
     return <p className="text-gray-700">予約が見つかりませんでした。</p>;
@@ -33,7 +42,7 @@ export default async function AdminReservationDetail({
         <p>来店目安: {reservation.arrivalTime ?? "未入力"}</p>
         <p>氏名: {reservation.name}</p>
         <p>電話: {reservation.phone}</p>
-        <p>要望: {note ?? "なし"}</p>
+        <p className="whitespace-pre-wrap leading-6">要望: {note ?? "なし"}</p>
         <p>ステータス: {reservation.status}</p>
         <p>作成: {reservation.createdAt.toISOString()}</p>
       </div>

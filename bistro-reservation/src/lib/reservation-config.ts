@@ -9,6 +9,10 @@ export const RESERVATION_CONFIG = {
       date: "2026-04-25",
       servicePeriod: "LUNCH",
     },
+    {
+      date: "2026-05-10",
+      servicePeriod: "LUNCH",
+    },
   ] as const,
   specialOpenDates: [] as string[],
   bookingWindowMonths: 3,

@@ -266,3 +266,25 @@ export function getReservationServiceLabel(
   const period = inferReservationServicePeriodFromCourse(course) ?? servicePeriod;
   return period ? RESERVATION_CONFIG.servicePeriods[period].label : "来店";
 }
+
+export function getPrivateBlockMarkerText(
+  lunchReason?: string | null,
+  dinnerReason?: string | null
+): "夜のみ" | "昼のみ" | "終日貸切" | null {
+  const lunchPrivateBlock = lunchReason === "PRIVATE_BLOCK";
+  const dinnerPrivateBlock = dinnerReason === "PRIVATE_BLOCK";
+
+  if (lunchPrivateBlock && dinnerPrivateBlock) {
+    return "終日貸切";
+  }
+
+  if (lunchPrivateBlock) {
+    return "夜のみ";
+  }
+
+  if (dinnerPrivateBlock) {
+    return "昼のみ";
+  }
+
+  return null;
+}

@@ -4,17 +4,21 @@ import { isAuthorized, unauthorized } from "@/lib/basic-auth";
 
 const AI_UA_HINTS = [/GPTBot/i, /ChatGPT/i, /OpenAI/i, /Claude/i, /Anthropic/i, /Perplexity/i];
 const AGENT_ENTRY_PATH = "/agents";
+const PROTECTED_WEB_PREFIXES = ["/admin", "/dashboard", "/staff"] as const;
+const PROTECTED_API_PREFIXES = [
+  "/api/admin",
+  "/api/dashboard",
+  // Add "/api/staff" here when staff-only APIs are introduced.
+] as const;
+
+function matchesProtectedPrefix(pathname: string, prefix: string) {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
 
 function isProtectedPath(pathname: string) {
   return (
-    pathname === "/admin" ||
-    pathname.startsWith("/admin/") ||
-    pathname === "/dashboard" ||
-    pathname.startsWith("/dashboard/") ||
-    pathname === "/api/admin" ||
-    pathname.startsWith("/api/admin/") ||
-    pathname === "/api/dashboard" ||
-    pathname.startsWith("/api/dashboard/")
+    PROTECTED_WEB_PREFIXES.some((prefix) => matchesProtectedPrefix(pathname, prefix)) ||
+    PROTECTED_API_PREFIXES.some((prefix) => matchesProtectedPrefix(pathname, prefix))
   );
 }
 
@@ -62,5 +66,16 @@ export const config = {
   // NOTE:
   // - Admin/Dashboard surface is protected by Basic auth here.
   // - Cron endpoints remain protected inside each route by CRON_SECRET bearer auth.
-  matcher: ["/", "/admin/:path*", "/dashboard/:path*", "/api/admin/:path*", "/api/dashboard/:path*"],
+  // - Staff hub is protected with the same Basic auth until dedicated auth is introduced.
+  // - Next 16 compatibility: if middleware file naming moves to proxy.ts,
+  //   keep this matcher/auth logic unchanged and relocate with a file rename only.
+  matcher: [
+    "/",
+    "/admin/:path*",
+    "/dashboard/:path*",
+    "/staff/:path*",
+    "/api/admin/:path*",
+    "/api/dashboard/:path*",
+    // Add "/api/staff/:path*" when staff-only APIs are introduced.
+  ],
 };

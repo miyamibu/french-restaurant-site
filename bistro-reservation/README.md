@@ -31,6 +31,7 @@ npm install
 2. 環境変数
 ```bash
 cp .env.example .env
+cp .env.local.example .env.local
 ```
 3. Prisma
 ```bash
@@ -52,7 +53,15 @@ npm run dev
 - `ADMIN_BASIC_USER`, `ADMIN_BASIC_PASS`
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
 - `CRON_SECRET`
+- `PRIVATE_BLOCK_ACCESS_CODE`（公開予約フォームで貸切モードを解放する管理用パスコード）
+- `BANK_ACCOUNT_HISTORY_ENCRYPTION_KEY`
 - `CONTACT_PHONE_E164`, `CONTACT_PHONE_DISPLAY`, `CONTACT_MESSAGE`
+
+`BANK_ACCOUNT_HISTORY_ENCRYPTION_KEY` は銀行口座履歴専用キーです。  
+他用途 secret へのフォールバックは行わず、未設定時は安全側で失敗します。
+
+ローカルで `npm run build` まで通したい場合は、`.env.local.example` を `.env.local` にコピーして最低限の値を埋めてください。  
+本番 secret をローカルに複製する必要はありませんが、`DATABASE_URL` や Supabase URL などは形式が正しい値が必要です。
 
 クライアント表示で連絡先を使う場合は以下も設定してください。
 
@@ -71,6 +80,9 @@ npm run dev
 - `/api/admin/:path*`
 - `/api/dashboard/:path*`
 
+将来互換メモ（Next 16）: `middleware.ts` が `proxy.ts` へ改称される場合も、
+Basic 認証ロジックは `src/lib/basic-auth.ts` を共通利用し、認証判定の実装差分を出さない方針です。
+
 ### Cron 認証（Bearer）
 
 cron API は `Authorization: Bearer $CRON_SECRET` で保護されます。
@@ -82,6 +94,11 @@ cron API は `Authorization: Bearer $CRON_SECRET` で保護されます。
 
 実行メソッドは `POST` を正とします。`GET` は Vercel Cron 互換のため、
 `x-vercel-cron: 1` ヘッダーまたは `?compat=1` がある場合のみ受け付けます。
+
+大量データ対策として cron はバッチ処理化しています。
+
+- `cancel-expired-orders`: 1回実行あたり最大 200 件（`STATUS_FETCH_LIMIT=50` を反復）
+- `delete-old-histories`: 1回実行あたり最大 1000 件（200件バッチ削除）
 
 ## API 防御方針（CORS/CSRF）
 
@@ -143,6 +160,8 @@ cron API は `Authorization: Bearer $CRON_SECRET` で保護されます。
 - 来店時間は `17:30` 以降
 - 店頭支払い（`cash-store`）の来店日は 木〜日かつ 注文日+14〜30日
 - 顧客の自己キャンセル/変更 UI は未実装。連絡導線（電話）で運用
+- `SHIPPED` / `CANCELLED` 到達時は `order_history` に終端スナップショットを archive する
+- 問い合わせ/注文確認メールは fail-close。配信失敗時は API がエラーを返し、成功扱いにしない
 
 ## Prisma マイグレーション
 
@@ -188,10 +207,28 @@ npx prisma migrate status
 ## テスト・リリース前チェック
 
 ```bash
+npm run check:release
 npm run lint
 npm run test
 npm run build
 ```
 
-全て成功してからデプロイしてください。
+まとめて流す場合は以下でも構いません。
 
+```bash
+npm run preflight
+```
+
+Preview へ出す前は、ローカル確認に加えて Vercel の `Preview` 環境にも以下の必須キーが入っていることを確認してください。
+
+- `DATABASE_URL`
+- `BASE_URL`
+- `ADMIN_BASIC_USER`
+- `ADMIN_BASIC_PASS`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `CRON_SECRET`
+- `BANK_ACCOUNT_HISTORY_ENCRYPTION_KEY`
+
+全て成功してからデプロイしてください。

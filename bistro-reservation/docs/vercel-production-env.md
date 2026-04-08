@@ -45,6 +45,7 @@ Source: use the generated value now stored in `.env.local`.
 9. `BANK_ACCOUNT_HISTORY_ENCRYPTION_KEY`
 Purpose: dedicated encryption key for bank account history.
 Source: use the generated value now stored in `.env.local`.
+Note: no fallback to other secrets is used.
 
 10. `BANK_ACCOUNT_HISTORY_KEY_VERSION`
 Purpose: encryption key version stored with history records.
@@ -62,6 +63,7 @@ Expected value: `resend` or `sendgrid`.
 13. `RESEND_API_KEY`
 Purpose: Resend API key when `EMAIL_PROVIDER=resend`.
 Source: current `.env.local`.
+Note: contact/order notification APIs fail when delivery config is missing.
 
 14. `EMAIL_API_KEY`
 Purpose: SendGrid API key or fallback generic provider key.

@@ -1,12 +1,17 @@
+import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { apiError, enforceWriteRequestSecurity } from "@/lib/api-security";
 import { sendContactEmail } from "@/lib/email";
-import { logError, logInfo, logWarn, getRequestId } from "@/lib/logger";
+import { logError, logInfo, getRequestId } from "@/lib/logger";
 import { createContactSchema, zodFields } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
 const SUBMIT_ERROR_MESSAGE = "送信に失敗しました。時間をおいて再度お試しください。";
+
+function hashLogValue(value: string) {
+  return createHash("sha256").update(value.trim().toLowerCase()).digest("hex").slice(0, 12);
+}
 
 export async function POST(request: NextRequest) {
   const requestId = getRequestId(request);
@@ -26,34 +31,23 @@ export async function POST(request: NextRequest) {
   }
 
   const emailResult = await sendContactEmail(parsed.data);
+  const safeContext = {
+    emailHash: hashLogValue(parsed.data.email),
+    subjectLength: parsed.data.subject.trim().length,
+  };
 
-  if (!emailResult.accepted) {
+  if (!emailResult.accepted || !emailResult.sent) {
     logError("contact.send.failed", {
       requestId,
       route: "/api/contact",
       errorCode: emailResult.reason,
-      context: {
-        email: parsed.data.email,
-        subject: parsed.data.subject,
-      },
+      context: safeContext,
     });
 
-    return apiError(500, {
+    return apiError(502, {
       error: SUBMIT_ERROR_MESSAGE,
-      code: "CONTACT_SEND_FAILED",
+      code: "CONTACT_DELIVERY_FAILED",
       requestId,
-    });
-  }
-
-  if (!emailResult.sent) {
-    logWarn("contact.delivery.skipped", {
-      requestId,
-      route: "/api/contact",
-      errorCode: emailResult.reason,
-      context: {
-        email: parsed.data.email,
-        subject: parsed.data.subject,
-      },
     });
   }
 
@@ -61,9 +55,8 @@ export async function POST(request: NextRequest) {
     requestId,
     route: "/api/contact",
     context: {
-      email: parsed.data.email,
-      subject: parsed.data.subject,
-      delivered: emailResult.sent,
+      ...safeContext,
+      delivered: true,
     },
   });
 

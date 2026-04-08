@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { createContactSchema, createOrderSchema, createReservationSchema } from "@/lib/validation";
+import {
+  createContactSchema,
+  createOrderSchema,
+  createPrivateBlockSchema,
+  createReservationSchema,
+} from "@/lib/validation";
 
 describe("Validation schemas", () => {
   it("accepts valid reservation payload", () => {
@@ -47,6 +52,29 @@ describe("Validation schemas", () => {
       name: "山田 太郎",
       phone: "090-1111-2222",
     });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("accepts private block payload with required access code", () => {
+    const parsed = createPrivateBlockSchema.safeParse({
+      reservationType: "PRIVATE_BLOCK",
+      privateBlockAccessCode: "secret-code",
+      date: "2026-03-15",
+      arrivalTime: "18:00",
+      lastName: "貸切",
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it("rejects private block payload without access code", () => {
+    const parsed = createPrivateBlockSchema.safeParse({
+      reservationType: "PRIVATE_BLOCK",
+      date: "2026-03-15",
+      arrivalTime: "18:00",
+      lastName: "貸切",
+    });
+
     expect(parsed.success).toBe(false);
   });
 
@@ -106,4 +134,3 @@ describe("Validation schemas", () => {
     expect(parsed.success).toBe(false);
   });
 });
-

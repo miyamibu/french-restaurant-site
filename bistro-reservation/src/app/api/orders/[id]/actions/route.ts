@@ -4,6 +4,7 @@ import { isAuthorized } from "@/lib/basic-auth";
 import { sendOrderConfirmationEmail } from "@/lib/email";
 import { apiError, enforceWriteRequestSecurity } from "@/lib/api-security";
 import { validatePayInStoreVisitDate } from "@/lib/order-rules";
+import { archiveOrderHistoryByOrderId } from "@/lib/order-history";
 import { supabaseServer } from "@/lib/supabase-server";
 import {
   cancelOrderPayloadSchema,
@@ -17,6 +18,7 @@ import {
 } from "@/lib/validation";
 import {
   buildIdempotencyHash,
+  OrderActionError,
   executeCancelOrderAction,
   executeConfirmHumanAction,
   executeMarkCollectedAction,
@@ -143,8 +145,8 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
             expectedVersion,
             payload: payloadResult.data,
           }),
-          execute: () =>
-            executeSetPaymentMethodAction({
+          execute: async () => {
+            const actionResult = await executeSetPaymentMethodAction({
               orderId: id,
               expectedVersion,
               paymentMethod: payloadResult.data.paymentMethod,
@@ -154,26 +156,31 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
               actorId: actorKey,
               requestId,
               idempotencyKey,
-            }),
-        });
-
-        if (result.status < 400 && !result.replayed) {
-          const { data: orderRow, error: orderError } = await supabaseServer
-            .from("orders")
-            .select(
-              "id, customer_name, email, phone, zip_code, prefecture, city, address, building, items, total, payment_method, store_visit_date"
-            )
-            .eq("id", id)
-            .maybeSingle();
-
-          if (orderError) {
-            logError("orders.actions.set_payment_method.fetch_email_context_failed", {
-              requestId,
-              route: "/api/orders/[id]/actions",
-              errorCode: "ORDER_EMAIL_CONTEXT_FETCH_FAILED",
-              context: { orderId: id, message: orderError.message },
             });
-          } else if (orderRow) {
+
+            const { data: orderRow, error: orderError } = await supabaseServer
+              .from("orders")
+              .select(
+                "id, customer_name, email, phone, zip_code, prefecture, city, address, building, items, total, payment_method, store_visit_date"
+              )
+              .eq("id", id)
+              .maybeSingle();
+
+            if (orderError || !orderRow) {
+              logError("orders.actions.set_payment_method.fetch_email_context_failed", {
+                requestId,
+                route: "/api/orders/[id]/actions",
+                errorCode: "ORDER_EMAIL_CONTEXT_FETCH_FAILED",
+                context: { orderId: id, message: orderError?.message ?? "Order not found" },
+              });
+
+              throw new OrderActionError(
+                502,
+                "ORDER_EMAIL_CONTEXT_FETCH_FAILED",
+                "注文確認メール送信の準備に失敗しました"
+              );
+            }
+
             const emailItems = Array.isArray(orderRow.items)
               ? orderRow.items
                   .filter(
@@ -216,7 +223,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
                   | undefined) ?? undefined;
             }
 
-            sendOrderConfirmationEmail(
+            const emailResult = await sendOrderConfirmationEmail(
               {
                 name: String(orderRow.customer_name),
                 email: String(orderRow.email),
@@ -232,19 +239,36 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
               orderRow.payment_method === "PAY_IN_STORE" ? "PAY_IN_STORE" : "BANK_TRANSFER",
               typeof orderRow.store_visit_date === "string" ? orderRow.store_visit_date : undefined,
               bankAccount
-            ).catch((emailError) => {
+            );
+
+            if (!emailResult.sent) {
               logError("orders.actions.set_payment_method.email_failed", {
                 requestId,
                 route: "/api/orders/[id]/actions",
-                errorCode: "ORDER_EMAIL_SEND_FAILED",
+                errorCode: emailResult.reason,
                 context: {
                   orderId: id,
-                  message: emailError instanceof Error ? emailError.message : String(emailError),
+                  target: emailResult.target,
                 },
               });
-            });
-          }
-        }
+
+              throw new OrderActionError(
+                502,
+                "ORDER_NOTIFICATION_FAILED",
+                "注文確認メールの送信に失敗しました"
+              );
+            }
+
+            return {
+              ...(actionResult as Record<string, unknown>),
+              notification: {
+                sent: true,
+                provider: emailResult.provider,
+                adminSent: emailResult.adminSent,
+              },
+            };
+          },
+        });
 
         return NextResponse.json(result.body, { status: result.status });
       }
@@ -363,8 +387,8 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
               expectedVersion,
               payload: payloadResult.data,
             }),
-            execute: () =>
-              executeMarkShippedAction({
+            execute: async () => {
+              const actionResult = await executeMarkShippedAction({
                 orderId: id,
                 expectedVersion,
                 actorType: "admin",
@@ -372,7 +396,16 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
                 requestId,
                 idempotencyKey,
                 adminNote: payloadResult.data.adminNote,
-              }),
+              });
+
+              await archiveOrderHistoryByOrderId({
+                orderId: id,
+                source: "admin",
+                requestId,
+              });
+
+              return actionResult;
+            },
           });
 
           return NextResponse.json(result.body, { status: result.status });
@@ -399,8 +432,8 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
             expectedVersion,
             payload: payloadResult.data,
           }),
-          execute: () =>
-            executeCancelOrderAction({
+          execute: async () => {
+            const actionResult = await executeCancelOrderAction({
               orderId: id,
               expectedVersion,
               reasonCode: payloadResult.data.reasonCode,
@@ -409,7 +442,16 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
               requestId,
               idempotencyKey,
               adminNote: payloadResult.data.adminNote,
-            }),
+            });
+
+            await archiveOrderHistoryByOrderId({
+              orderId: id,
+              source: "admin",
+              requestId,
+            });
+
+            return actionResult;
+          },
         });
 
         return NextResponse.json(result.body, { status: result.status });
@@ -424,10 +466,21 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         });
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Internal server error";
+    const message = error instanceof Error ? error.message : String(error);
+    logError("orders.actions.unexpected", {
+      requestId,
+      route: "/api/orders/[id]/actions",
+      errorCode: "INTERNAL_SERVER_ERROR",
+      context: {
+        orderId: id,
+        action,
+        message,
+      },
+    });
+
     return apiError(500, {
       ok: false,
-      error: message,
+      error: "Internal server error",
       code: "INTERNAL_SERVER_ERROR",
       requestId,
     });

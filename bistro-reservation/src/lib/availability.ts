@@ -12,6 +12,7 @@ import {
   type AvailabilityReason,
   type AvailabilityResult,
 } from "@/lib/reservation-capacity";
+import { PRIVATE_BLOCK_ERROR_MESSAGE } from "@/lib/private-block";
 import { findReservationsCompat } from "@/lib/reservation-compat";
 
 export type AvailabilityResponse = AvailabilityResult & {
@@ -47,6 +48,7 @@ export async function getAvailability(
         partySize: reservation.partySize,
         status: reservation.status,
         servicePeriod: reservation.servicePeriod,
+        reservationType: reservation.reservationType,
       })),
       businessDayClosed: businessDay?.isClosed,
     }),
@@ -115,6 +117,12 @@ export function availabilityReasonToError(reason: AvailabilityReason): {
         status: 409,
         code: reason,
         error: "この時間帯はWeb予約を停止しています。お電話でご相談ください。",
+      };
+    case "PRIVATE_BLOCK":
+      return {
+        status: 409,
+        code: reason,
+        error: PRIVATE_BLOCK_ERROR_MESSAGE,
       };
     case "OK":
       return {

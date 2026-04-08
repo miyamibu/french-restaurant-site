@@ -1,11 +1,54 @@
 import { NextRequest, NextResponse } from "next/server";
 import { env } from "@/lib/env";
 
+function decodeBasicCredentials(base64Value: string) {
+  try {
+    if (typeof atob === "function") {
+      return atob(base64Value);
+    }
+  } catch {
+    return null;
+  }
+
+  try {
+    if (typeof Buffer === "undefined") {
+      return null;
+    }
+
+    const normalized = base64Value.trim();
+    if (
+      !normalized ||
+      normalized.length % 4 !== 0 ||
+      !/^[A-Za-z0-9+/]+={0,2}$/.test(normalized)
+    ) {
+      return null;
+    }
+
+    const decoded = Buffer.from(normalized, "base64");
+    if (decoded.toString("base64") !== normalized) {
+      return null;
+    }
+
+    return decoded.toString("utf-8");
+  } catch {
+    return null;
+  }
+}
+
 export function parseBasicAuthHeader(header: string | null) {
-  if (!header || !header.startsWith("Basic ")) return null;
-  const base64 = header.replace("Basic ", "");
-  const decoded = typeof atob === "function" ? atob(base64) : Buffer.from(base64, "base64").toString("utf-8");
-  const [user, pass] = decoded.split(":");
+  if (!header) return null;
+
+  const match = header.match(/^Basic\s+([A-Za-z0-9+/=]+)$/i);
+  if (!match) return null;
+
+  const decoded = decodeBasicCredentials(match[1]);
+  if (!decoded) return null;
+
+  const separatorIndex = decoded.indexOf(":");
+  if (separatorIndex < 1) return null;
+
+  const user = decoded.slice(0, separatorIndex);
+  const pass = decoded.slice(separatorIndex + 1);
   return { user, pass };
 }
 

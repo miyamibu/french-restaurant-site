@@ -1,21 +1,18 @@
-import { randomUUID } from "crypto";
 import {
   Prisma,
   ReservationStatus,
+  ReservationType,
   type PrismaClient,
-  type Reservation,
   type SeatType,
 } from "@prisma/client";
-import { inferReservationServicePeriodFromArrivalTime } from "@/lib/booking-rules";
 import type { ReservationServicePeriodKey } from "@/lib/reservation-config";
 
 type ReservationClient = PrismaClient | Prisma.TransactionClient;
 
-type LegacyReservationRow = Omit<Reservation, "servicePeriod">;
-
 type ReservationCreateCompatInput = {
   date: string;
   servicePeriod: ReservationServicePeriodKey;
+  reservationType: ReservationType;
   seatType: SeatType;
   partySize: number;
   arrivalTime: string | null;
@@ -26,155 +23,77 @@ type ReservationCreateCompatInput = {
   lineUserId: string | null;
 };
 
-function deriveServicePeriod(
-  arrivalTime: string | null,
-  fallback: ReservationServicePeriodKey = "DINNER"
-): ReservationServicePeriodKey {
-  return inferReservationServicePeriodFromArrivalTime(arrivalTime) ?? fallback;
+export const RESERVATION_SCHEMA_NOT_READY_CODE = "RESERVATION_SCHEMA_NOT_READY";
+export const RESERVATION_SCHEMA_NOT_READY_MESSAGE =
+  "予約機能のデータベース移行が未完了です。migration 適用後に再試行してください。";
+
+export class ReservationSchemaNotReadyError extends Error {
+  readonly code = RESERVATION_SCHEMA_NOT_READY_CODE;
+
+  constructor(message: string = RESERVATION_SCHEMA_NOT_READY_MESSAGE) {
+    super(message);
+    this.name = "ReservationSchemaNotReadyError";
+  }
 }
 
-function mapLegacyReservation(row: LegacyReservationRow): Reservation {
-  return {
-    ...row,
-    servicePeriod: deriveServicePeriod(row.arrivalTime),
-  };
-}
-
-function buildWhereClauses(where: Prisma.ReservationWhereInput | undefined) {
-  const clauses: Prisma.Sql[] = [];
-
-  if (!where) {
-    return clauses;
-  }
-
-  if (typeof where.id === "string") {
-    clauses.push(Prisma.sql`"id" = ${where.id}`);
-  }
-
-  if (typeof where.date === "string") {
-    clauses.push(Prisma.sql`"date" = ${where.date}`);
-  } else if (where.date && typeof where.date === "object" && !Array.isArray(where.date)) {
-    if ("gte" in where.date && where.date.gte) {
-      clauses.push(Prisma.sql`"date" >= ${where.date.gte}`);
-    }
-    if ("lte" in where.date && where.date.lte) {
-      clauses.push(Prisma.sql`"date" <= ${where.date.lte}`);
-    }
-    if ("in" in where.date && Array.isArray(where.date.in) && where.date.in.length > 0) {
-      clauses.push(Prisma.sql`"date" IN (${Prisma.join(where.date.in)})`);
-    }
-  }
-
-  if (typeof where.status === "string") {
-    clauses.push(Prisma.sql`"status" = CAST(${where.status} AS "ReservationStatus")`);
-  } else if (where.status && typeof where.status === "object" && !Array.isArray(where.status)) {
-    if ("not" in where.status && typeof where.status.not === "string") {
-      clauses.push(
-        Prisma.sql`"status" <> CAST(${where.status.not} AS "ReservationStatus")`
-      );
-    }
-  }
-
-  return clauses;
-}
-
-function applyLegacyPostFilter(
-  rows: Reservation[],
-  where: Prisma.ReservationWhereInput | undefined
-) {
-  if (!where) {
-    return rows;
-  }
-
-  let filtered = rows;
-
-  if (typeof where.servicePeriod === "string") {
-    filtered = filtered.filter(
-      (reservation) => reservation.servicePeriod === where.servicePeriod
-    );
-  }
-
-  return filtered;
-}
-
-function sortReservations(
-  rows: Reservation[],
-  orderBy: Prisma.ReservationOrderByWithRelationInput | Prisma.ReservationOrderByWithRelationInput[] | undefined
-) {
-  const orderList = Array.isArray(orderBy) ? orderBy : orderBy ? [orderBy] : [];
-  if (orderList.length === 0) {
-    return rows;
-  }
-
-  return [...rows].sort((left, right) => {
-    for (const item of orderList) {
-      const [field, direction] = Object.entries(item)[0] ?? [];
-      if (!field || !direction || typeof direction !== "string") {
-        continue;
-      }
-
-      const leftValue = left[field as keyof Reservation];
-      const rightValue = right[field as keyof Reservation];
-
-      if (leftValue === rightValue) {
-        continue;
-      }
-
-      const comparison = leftValue instanceof Date && rightValue instanceof Date
-        ? leftValue.getTime() - rightValue.getTime()
-        : String(leftValue).localeCompare(String(rightValue));
-
-      return direction === "desc" ? -comparison : comparison;
-    }
-
-    return 0;
-  });
-}
-
-export function isMissingServicePeriodColumnError(error: unknown) {
+function isMissingReservationInfrastructureError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
-  const hasServicePeriodHint = /serviceperiod/i.test(message);
+  const hasReservationSchemaHint =
+    /(serviceperiod|reservationtype|privateblockauditlog|reservationratelimitevent)/i.test(
+      message
+    );
+  const hasMissingHint = /(does not exist|not found|unknown|invalid|missing|undefined column)/i.test(
+    message
+  );
 
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    return error.code === "P2022"
-      ? true
-      : hasServicePeriodHint &&
-          /(does not exist|not found|unknown|invalid|missing)/i.test(message);
+    if (error.code === "P2021" || error.code === "P2022") {
+      return true;
+    }
+
+    return hasReservationSchemaHint && hasMissingHint;
   }
 
-  return hasServicePeriodHint && /(does not exist|not found|unknown|invalid|missing)/i.test(message);
+  return hasReservationSchemaHint && hasMissingHint;
 }
 
-async function findManyLegacyReservations(
-  client: ReservationClient,
-  args: Prisma.ReservationFindManyArgs
-) {
-  const clauses = buildWhereClauses(args.where);
-  const whereSql =
-    clauses.length > 0
-      ? Prisma.sql`WHERE ${Prisma.join(clauses, " AND ")}`
-      : Prisma.empty;
+function throwIfReservationSchemaNotReady(error: unknown): void {
+  if (isMissingReservationInfrastructureError(error)) {
+    throw new ReservationSchemaNotReadyError();
+  }
+}
 
-  const rows = await client.$queryRaw<LegacyReservationRow[]>(Prisma.sql`
-    SELECT
-      "id",
-      "date",
-      "seatType",
-      "partySize",
-      "arrivalTime",
-      "name",
-      "phone",
-      "note",
-      "status",
-      "lineUserId",
-      "createdAt",
-      "updatedAt"
-    FROM "Reservation"
-    ${whereSql}
-  `);
+export function isReservationSchemaNotReadyError(
+  error: unknown
+): error is ReservationSchemaNotReadyError {
+  return error instanceof ReservationSchemaNotReadyError;
+}
 
-  const mapped = applyLegacyPostFilter(rows.map(mapLegacyReservation), args.where);
-  return sortReservations(mapped, args.orderBy);
+export async function ensureReservationSchemaReady(client: ReservationClient) {
+  try {
+    await client.$queryRaw`
+      SELECT
+        "servicePeriod",
+        "reservationType"
+      FROM "Reservation"
+      LIMIT 0
+    `;
+    await client.$queryRaw`
+      SELECT
+        "id"
+      FROM "PrivateBlockAuditLog"
+      LIMIT 0
+    `;
+    await client.$queryRaw`
+      SELECT
+        "id"
+      FROM "ReservationRateLimitEvent"
+      LIMIT 0
+    `;
+  } catch (error) {
+    throwIfReservationSchemaNotReady(error);
+    throw error;
+  }
 }
 
 export async function findReservationsCompat(
@@ -184,11 +103,8 @@ export async function findReservationsCompat(
   try {
     return await client.reservation.findMany(args);
   } catch (error) {
-    if (!isMissingServicePeriodColumnError(error)) {
-      throw error;
-    }
-
-    return findManyLegacyReservations(client, args);
+    throwIfReservationSchemaNotReady(error);
+    throw error;
   }
 }
 
@@ -196,31 +112,8 @@ export async function findReservationByIdCompat(client: ReservationClient, id: s
   try {
     return await client.reservation.findUnique({ where: { id } });
   } catch (error) {
-    if (!isMissingServicePeriodColumnError(error)) {
-      throw error;
-    }
-
-    const rows = await client.$queryRaw<LegacyReservationRow[]>(Prisma.sql`
-      SELECT
-        "id",
-        "date",
-        "seatType",
-        "partySize",
-        "arrivalTime",
-        "name",
-        "phone",
-        "note",
-        "status",
-        "lineUserId",
-        "createdAt",
-        "updatedAt"
-      FROM "Reservation"
-      WHERE "id" = ${id}
-      LIMIT 1
-    `);
-
-    const row = rows[0];
-    return row ? mapLegacyReservation(row) : null;
+    throwIfReservationSchemaNotReady(error);
+    throw error;
   }
 }
 
@@ -231,65 +124,8 @@ export async function createReservationCompat(
   try {
     return await client.reservation.create({ data });
   } catch (error) {
-    if (!isMissingServicePeriodColumnError(error)) {
-      throw error;
-    }
-
-    const now = new Date();
-    const id = randomUUID();
-    const rows = await client.$queryRaw<LegacyReservationRow[]>(Prisma.sql`
-      INSERT INTO "Reservation" (
-        "id",
-        "date",
-        "seatType",
-        "partySize",
-        "arrivalTime",
-        "name",
-        "phone",
-        "note",
-        "status",
-        "lineUserId",
-        "createdAt",
-        "updatedAt"
-      )
-      VALUES (
-        ${id},
-        ${data.date},
-        CAST(${data.seatType} AS "SeatType"),
-        ${data.partySize},
-        ${data.arrivalTime},
-        ${data.name},
-        ${data.phone},
-        ${data.note},
-        CAST(${data.status} AS "ReservationStatus"),
-        ${data.lineUserId},
-        ${now},
-        ${now}
-      )
-      RETURNING
-        "id",
-        "date",
-        "seatType",
-        "partySize",
-        "arrivalTime",
-        "name",
-        "phone",
-        "note",
-        "status",
-        "lineUserId",
-        "createdAt",
-        "updatedAt"
-    `);
-
-    const row = rows[0];
-    if (!row) {
-      throw new Error("LEGACY_RESERVATION_INSERT_FAILED");
-    }
-
-    return {
-      ...row,
-      servicePeriod: data.servicePeriod,
-    } satisfies Reservation;
+    throwIfReservationSchemaNotReady(error);
+    throw error;
   }
 }
 
@@ -308,32 +144,7 @@ export async function updateReservationStatusCompat(
       return null;
     }
 
-    if (!isMissingServicePeriodColumnError(error)) {
-      throw error;
-    }
-
-    const rows = await client.$queryRaw<LegacyReservationRow[]>(Prisma.sql`
-      UPDATE "Reservation"
-      SET
-        "status" = CAST(${status} AS "ReservationStatus"),
-        "updatedAt" = ${new Date()}
-      WHERE "id" = ${id}
-      RETURNING
-        "id",
-        "date",
-        "seatType",
-        "partySize",
-        "arrivalTime",
-        "name",
-        "phone",
-        "note",
-        "status",
-        "lineUserId",
-        "createdAt",
-        "updatedAt"
-    `);
-
-    const row = rows[0];
-    return row ? mapLegacyReservation(row) : null;
+    throwIfReservationSchemaNotReady(error);
+    throw error;
   }
 }

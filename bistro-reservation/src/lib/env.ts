@@ -6,6 +6,14 @@ const emptyToUndefined = (value: unknown) =>
 const optionalString = z.preprocess(emptyToUndefined, z.string().min(1).optional());
 const optionalEmail = z.preprocess(emptyToUndefined, z.string().email().optional());
 const optionalUrl = z.preprocess(emptyToUndefined, z.string().url().optional()).catch(undefined);
+
+function isBuildTimeValidationBypass() {
+  return (
+    process.env.npm_lifecycle_event === "build" ||
+    process.env.NEXT_PHASE === "phase-production-build"
+  );
+}
+
 const envSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -27,6 +35,7 @@ const envSchema = z
     NEXT_PUBLIC_SUPABASE_ANON_KEY: optionalString,
     SUPABASE_SERVICE_ROLE_KEY: optionalString,
     CRON_SECRET: optionalString,
+    PRIVATE_BLOCK_ACCESS_CODE: optionalString,
     BANK_ACCOUNT_HISTORY_ENCRYPTION_KEY: optionalString,
     BANK_ACCOUNT_HISTORY_KEY_VERSION: z.coerce.number().int().positive().optional().default(1),
     CONTACT_PHONE_E164: z
@@ -40,7 +49,7 @@ const envSchema = z
       .default("お電話でお問い合わせください"),
   })
   .superRefine((value, ctx) => {
-    if (value.NODE_ENV !== "production") return;
+    if (value.NODE_ENV !== "production" || isBuildTimeValidationBypass()) return;
 
     const requiredInProduction: Array<keyof typeof value> = [
       "DATABASE_URL",
@@ -49,6 +58,7 @@ const envSchema = z
       "NEXT_PUBLIC_SUPABASE_URL",
       "SUPABASE_SERVICE_ROLE_KEY",
       "CRON_SECRET",
+      "BANK_ACCOUNT_HISTORY_ENCRYPTION_KEY",
     ];
 
     for (const key of requiredInProduction) {

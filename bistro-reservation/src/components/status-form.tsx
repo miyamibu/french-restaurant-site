@@ -4,12 +4,37 @@ import { useState } from "react";
 import { ReservationStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 
-export function StatusForm({ id, current }: { id: string; current: ReservationStatus }) {
+export function StatusForm({
+  id,
+  current,
+  isPrivateBlock = false,
+}: {
+  id: string;
+  current: ReservationStatus;
+  isPrivateBlock?: boolean;
+}) {
   const [status, setStatus] = useState<ReservationStatus>(current);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function submitStatus(nextStatus: ReservationStatus) {
+    let operatorName: string | undefined;
+    if (isPrivateBlock && nextStatus === ReservationStatus.CANCELLED) {
+      const input = window.prompt("貸切解除の担当者名を入力してください");
+      if (input == null) {
+        setMessage("解除をキャンセルしました");
+        return;
+      }
+
+      const trimmed = input.trim();
+      if (!trimmed) {
+        setMessage("担当者名は必須です");
+        return;
+      }
+
+      operatorName = trimmed;
+    }
+
     setLoading(true);
     setMessage(null);
     setStatus(nextStatus);
@@ -19,7 +44,7 @@ export function StatusForm({ id, current }: { id: string; current: ReservationSt
         "Content-Type": "application/json",
         "X-Requested-With": "XMLHttpRequest",
       },
-      body: JSON.stringify({ status: nextStatus }),
+      body: JSON.stringify({ status: nextStatus, operatorName }),
     });
     if (res.ok) {
       setMessage(`ステータスを ${nextStatus} に更新しました`);

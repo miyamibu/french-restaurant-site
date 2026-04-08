@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { createCipheriv, createHash, randomBytes } from "crypto";
 import { isAuthorized } from "@/lib/basic-auth";
+import { encryptBankHistoryValue } from "@/lib/bank-account-history-crypto";
 import { env } from "@/lib/env";
 import { supabaseServer } from "@/lib/supabase-server";
 import { apiError, enforceWriteRequestSecurity } from "@/lib/api-security";
@@ -30,37 +30,6 @@ type BankAccountRecord = {
   account_number: string;
   account_holder: string;
 };
-
-function toPgBytea(value: Buffer) {
-  return `\\x${value.toString("hex")}`;
-}
-
-function getBankHistoryKey() {
-  const seed =
-    env.BANK_ACCOUNT_HISTORY_ENCRYPTION_KEY ||
-    env.SUPABASE_SERVICE_ROLE_KEY ||
-    env.ADMIN_BASIC_PASS ||
-    env.CRON_SECRET;
-
-  if (!seed) {
-    throw new Error("BANK_ACCOUNT_HISTORY_KEY_UNAVAILABLE");
-  }
-
-  return createHash("sha256").update(seed).digest();
-}
-
-function encryptBankHistoryValue(value: string) {
-  const nonce = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", getBankHistoryKey(), nonce);
-  const encrypted = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
-  const authTag = cipher.getAuthTag();
-
-  return {
-    ciphertext: toPgBytea(encrypted),
-    nonce: toPgBytea(nonce),
-    authTag: toPgBytea(authTag),
-  };
-}
 
 async function appendBankAccountHistory(input: {
   bankAccount: BankAccountRecord;

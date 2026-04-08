@@ -31,6 +31,7 @@ Set these values in your hosting provider before the production deploy:
 6. `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 7. `SUPABASE_SERVICE_ROLE_KEY`
 8. `CRON_SECRET`
+9. `BANK_ACCOUNT_HISTORY_ENCRYPTION_KEY`
 
 Recommended operational values:
 
@@ -39,34 +40,56 @@ Recommended operational values:
 3. `EMAIL_FROM`
 4. `ADMIN_EMAIL`
 5. `STORE_NAME`
-6. `BANK_ACCOUNT_HISTORY_ENCRYPTION_KEY`
-7. `BANK_ACCOUNT_HISTORY_KEY_VERSION`
-8. `CONTACT_PHONE_E164`
-9. `CONTACT_PHONE_DISPLAY`
-10. `CONTACT_MESSAGE`
-11. `NEXT_PUBLIC_CONTACT_PHONE_E164`
-12. `NEXT_PUBLIC_CONTACT_PHONE_DISPLAY`
-13. `NEXT_PUBLIC_CONTACT_MESSAGE`
-14. `LINE_CHANNEL_ACCESS_TOKEN`
-15. `LINE_CHANNEL_SECRET`
-16. `LIFF_ID`
+6. `BANK_ACCOUNT_HISTORY_KEY_VERSION`
+7. `CONTACT_PHONE_E164`
+8. `CONTACT_PHONE_DISPLAY`
+9. `CONTACT_MESSAGE`
+10. `NEXT_PUBLIC_CONTACT_PHONE_E164`
+11. `NEXT_PUBLIC_CONTACT_PHONE_DISPLAY`
+12. `NEXT_PUBLIC_CONTACT_MESSAGE`
+13. `LINE_CHANNEL_ACCESS_TOKEN`
+14. `LINE_CHANNEL_SECRET`
+15. `LIFF_ID`
 
 Email provider notes:
 
-1. If `EMAIL_PROVIDER=resend`, set `RESEND_API_KEY`. `EMAIL_API_KEY` is also accepted as a fallback.
+1. If `EMAIL_PROVIDER=resend`, set `RESEND_API_KEY`. `EMAIL_API_KEY` is accepted only as fallback.
 2. If `EMAIL_PROVIDER=sendgrid`, set `EMAIL_API_KEY`.
-3. If email keys are missing, reservation and order emails can be skipped silently.
+3. Contact and order confirmation APIs are fail-closed for delivery. Missing/invalid mail config is returned as API error.
 
 Bank account history note:
 
-1. `BANK_ACCOUNT_HISTORY_ENCRYPTION_KEY` is recommended for a dedicated encryption secret.
-2. If it is missing, the app falls back to `SUPABASE_SERVICE_ROLE_KEY`, `ADMIN_BASIC_PASS`, or `CRON_SECRET`.
+1. `BANK_ACCOUNT_HISTORY_ENCRYPTION_KEY` is required and dedicated to bank history encryption.
+2. The app does not fall back to other secrets.
 
 Supabase notes:
 
 1. The Supabase project must be resumed and reachable before launch.
 2. `NEXT_PUBLIC_SUPABASE_URL` must be the real project URL, not a placeholder.
 3. `SUPABASE_SERVICE_ROLE_KEY` must be the real service role key.
+
+## Preview environment
+
+Preview build also evaluates the production-only env validation during Vercel build.  
+That means `Preview` needs the same required keys as `Production`, even when the values point at staging resources instead of live ones.
+
+Set these keys in Vercel Preview before relying on preview deploys:
+
+1. `DATABASE_URL`
+2. `BASE_URL`
+3. `ADMIN_BASIC_USER`
+4. `ADMIN_BASIC_PASS`
+5. `NEXT_PUBLIC_SUPABASE_URL`
+6. `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+7. `SUPABASE_SERVICE_ROLE_KEY`
+8. `CRON_SECRET`
+9. `BANK_ACCOUNT_HISTORY_ENCRYPTION_KEY`
+
+Safe default:
+
+1. Use a preview or staging database instead of the live production database
+2. Use preview/staging Supabase credentials instead of the production service role key
+3. Keep Preview verification read-only when possible
 
 ## One-time database preparation
 
@@ -98,6 +121,15 @@ Optional custom port:
 powershell -ExecutionPolicy Bypass -File .\scripts\prelaunch-check.ps1 -Port 3200
 ```
 
+Before running release checks, confirm the Git working tree is clean enough for release:
+
+```bash
+git status --short --branch
+```
+
+Do not deploy from a dirty tree that includes untracked `src/app/*` routes or other release-unrelated files.  
+Local CLI deploys can upload those files even when they are not committed.
+
 This script validates:
 
 1. Required env keys are present and not obvious placeholders
@@ -107,6 +139,18 @@ This script validates:
 5. `npm run build`
 6. `next start` smoke checks for `/agents`, `/ai`, `/?ai=1`, `/api/agent`, and Basic auth
 7. `POST /api/reservations` accepts `Content-Type: application/json` without requiring `X-Requested-With`
+
+For a faster cross-platform env check before the full preflight, run:
+
+```bash
+npm run check:release
+```
+
+For preview-specific reminders:
+
+```bash
+npm run check:release:preview
+```
 
 ## Vercel deployment
 
@@ -132,11 +176,19 @@ Deploy sequence:
 5. Trigger a production deployment
 6. Wait for build completion
 
+CLI note:
+
+1. `vercel deploy` on a team project can be rejected when the local Git author email is not recognized by that Vercel team
+2. Before relying on CLI preview deploys, confirm `git config user.email` is your Vercel team email, not a local machine address such as `name@host.local`
+3. If CLI preview is blocked by author enforcement, use the Git-integrated deploy flow or correct the Git author before retrying
+
 Cron notes:
 
 1. Vercel will call the paths declared in `vercel.json`
 2. Cron endpoints still require the correct `CRON_SECRET` logic inside the route handlers
 3. Do not remove `CRON_SECRET` after deploy
+4. `cancel-expired-orders` is bounded to 200 orders per run and can be safely rerun
+5. `delete-old-histories` deletes up to 1000 rows per run in 200-row batches
 
 ## Post-deploy smoke checks
 

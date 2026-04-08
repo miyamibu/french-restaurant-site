@@ -1,10 +1,21 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { ReservationStatus, ReservationType } from "@prisma/client";
 import { describe, expect, it } from "vitest";
-import { isArrivalTimeValid, isCoursePeriodConsistent } from "@/lib/availability";
+import {
+  availabilityReasonToError,
+  isArrivalTimeValid,
+  isCoursePeriodConsistent,
+} from "@/lib/availability";
+import {
+  buildPrivateBlockReservationInput,
+  evaluatePrivateBlockSubmission,
+} from "@/lib/private-block";
+import { getPrivateBlockMarkerText, inferReservationServicePeriodFromArrivalTime } from "@/lib/booking-rules";
 import { buildReservationAdvisoryLockKey } from "@/lib/reservation-lock";
 import { evaluateReservationAvailability } from "@/lib/reservation-capacity";
 import { jstDateTimeFromString } from "@/lib/dates";
+import { sendReservationEmail } from "@/lib/email";
 
 const stableNow = jstDateTimeFromString("2026-04-08", "12:00");
 
@@ -87,6 +98,116 @@ describe("reservation integration scenarios", () => {
   it("rejects service period and arrival time mismatches", () => {
     expect(isArrivalTimeValid("18:00", "LUNCH")).toBe(false);
     expect(isCoursePeriodConsistent("ディナー: 席のみ", "LUNCH")).toBe(false);
+  });
+
+  it("renders lunch private block as 夜のみ on the calendar", () => {
+    expect(getPrivateBlockMarkerText("PRIVATE_BLOCK", "OK")).toBe("夜のみ");
+  });
+
+  it("renders dinner private block as 昼のみ on the calendar", () => {
+    expect(getPrivateBlockMarkerText("OK", "PRIVATE_BLOCK")).toBe("昼のみ");
+  });
+
+  it("renders all-day private block as 終日貸切 on the calendar", () => {
+    expect(getPrivateBlockMarkerText("PRIVATE_BLOCK", "PRIVATE_BLOCK")).toBe("終日貸切");
+  });
+
+  it("infers private-block service period from arrival time", () => {
+    expect(inferReservationServicePeriodFromArrivalTime("11:30")).toBe("LUNCH");
+    expect(inferReservationServicePeriodFromArrivalTime("18:00")).toBe("DINNER");
+    expect(inferReservationServicePeriodFromArrivalTime("23:59")).toBeNull();
+  });
+
+  it("builds private block reservations as PRIVATE_BLOCK entries", () => {
+    expect(
+      buildPrivateBlockReservationInput({
+        date: "2026-04-20",
+        servicePeriod: "LUNCH",
+        note: "貸切設定テスト",
+      })
+    ).toMatchObject({
+      date: "2026-04-20",
+      servicePeriod: "LUNCH",
+      reservationType: ReservationType.PRIVATE_BLOCK,
+      partySize: 1,
+      arrivalTime: null,
+      name: "貸切",
+      status: ReservationStatus.CONFIRMED,
+    });
+  });
+
+  it("rejects private block setup when confirmed normal reservations exist", () => {
+    expect(
+      evaluatePrivateBlockSubmission([
+        {
+          reservationType: ReservationType.NORMAL,
+          status: ReservationStatus.CONFIRMED,
+        },
+      ])
+    ).toBe("CONFLICT");
+
+    expect(availabilityReasonToError("PRIVATE_BLOCK").error).toBe(
+      "この時間帯は貸切営業のため予約できません"
+    );
+  });
+
+  it("treats repeated private block setup as no-op success", () => {
+    expect(
+      evaluatePrivateBlockSubmission([
+        {
+          reservationType: ReservationType.PRIVATE_BLOCK,
+          status: ReservationStatus.CONFIRMED,
+        },
+      ])
+    ).toBe("NO_OP");
+  });
+
+  it("blocks normal reservations when a private block exists", () => {
+    expect(
+      evaluateReservationAvailability({
+        date: "2026-04-10",
+        servicePeriod: "LUNCH",
+        partySize: 2,
+        existingReservations: [
+          {
+            partySize: 1,
+            status: "CONFIRMED",
+            servicePeriod: "LUNCH",
+            reservationType: "PRIVATE_BLOCK",
+          },
+        ],
+        now: stableNow,
+      })
+    ).toEqual({
+      reason: "PRIVATE_BLOCK",
+      webBookable: false,
+    });
+  });
+
+  it("skips reservation email sending for private block records", async () => {
+    const result = await sendReservationEmail({
+      reservation: {
+        id: "private-block-test",
+        date: "2026-04-10",
+        servicePeriod: "LUNCH",
+        reservationType: ReservationType.PRIVATE_BLOCK,
+        seatType: "MAIN",
+        partySize: 1,
+        arrivalTime: null,
+        name: "貸切",
+        phone: "-",
+        note: "テスト",
+        status: ReservationStatus.CONFIRMED,
+        lineUserId: null,
+        createdAt: new Date("2026-04-01T00:00:00.000Z"),
+        updatedAt: new Date("2026-04-01T00:00:00.000Z"),
+      },
+    });
+
+    expect(result).toEqual({
+      skipped: true,
+      reason: "PRIVATE_BLOCK",
+    });
   });
 
   it("keeps a migration failure guard for unbackfillable rows", () => {

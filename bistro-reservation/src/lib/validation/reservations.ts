@@ -19,5 +19,18 @@ export const createReservationSchema = z.object({
   course: z.string().max(200).optional(),
 });
 
-export type CreateReservationInput = z.infer<typeof createReservationSchema>;
+export const createPrivateBlockSchema = z.object({
+  reservationType: z.literal("PRIVATE_BLOCK"),
+  privateBlockAccessCode: z.string().trim().min(1, "管理用パスコードは必須です"),
+  date: dateStringSchema,
+  arrivalTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "HH:mm形式で入力してください"),
+  lastName: z.literal("貸切"),
+  firstName: z.string().trim().max(80).optional(),
+  phone: z.string().trim().max(32).optional(),
+  note: z.string().trim().max(2000).optional(),
+});
 
+export type CreateReservationInput = z.infer<typeof createReservationSchema>;
+export type CreatePrivateBlockInput = z.infer<typeof createPrivateBlockSchema>;

@@ -206,11 +206,11 @@ $requiredEnvKeys = @(
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
   "SUPABASE_SERVICE_ROLE_KEY",
-  "CRON_SECRET"
+  "CRON_SECRET",
+  "BANK_ACCOUNT_HISTORY_ENCRYPTION_KEY"
 )
 
 $recommendedEnvKeys = @(
-  "BANK_ACCOUNT_HISTORY_ENCRYPTION_KEY",
   "BANK_ACCOUNT_HISTORY_KEY_VERSION",
   "CONTACT_PHONE_E164",
   "CONTACT_PHONE_DISPLAY",
@@ -271,7 +271,8 @@ try {
     "NEXT_PUBLIC_SUPABASE_URL",
     "NEXT_PUBLIC_SUPABASE_ANON_KEY",
     "SUPABASE_SERVICE_ROLE_KEY",
-    "CRON_SECRET"
+    "CRON_SECRET",
+    "BANK_ACCOUNT_HISTORY_ENCRYPTION_KEY"
   ) | Where-Object { Test-Placeholder -Value ([string]$envMap[$_]) })
 
   if ($placeholderKeys.Count -gt 0) {
@@ -290,7 +291,6 @@ try {
   }
 
   $recommendedPlaceholderKeys = @(@(
-    "BANK_ACCOUNT_HISTORY_ENCRYPTION_KEY",
     "STORE_NOTIFY_EMAIL",
     "EMAIL_FROM"
   ) | Where-Object {

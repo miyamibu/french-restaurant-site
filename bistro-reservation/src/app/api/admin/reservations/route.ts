@@ -4,7 +4,12 @@ import { ReservationStatus } from "@prisma/client";
 import { isAuthorized } from "@/lib/basic-auth";
 import { apiError } from "@/lib/api-security";
 import { getRequestId, logError } from "@/lib/logger";
-import { findReservationsCompat } from "@/lib/reservation-compat";
+import {
+  RESERVATION_SCHEMA_NOT_READY_CODE,
+  ensureReservationSchemaReady,
+  findReservationsCompat,
+  isReservationSchemaNotReadyError,
+} from "@/lib/reservation-compat";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +22,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    await ensureReservationSchemaReady(prisma);
+
     const params = request.nextUrl.searchParams;
     const date = params.get("date");
     const statusParam = params.get("status");
@@ -42,6 +49,14 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(reservations);
   } catch (error) {
+    if (isReservationSchemaNotReadyError(error)) {
+      return apiError(503, {
+        error: "Reservation schema is not ready",
+        code: RESERVATION_SCHEMA_NOT_READY_CODE,
+        requestId,
+      });
+    }
+
     logError("admin.reservations.fetch.failed", {
       requestId,
       route,

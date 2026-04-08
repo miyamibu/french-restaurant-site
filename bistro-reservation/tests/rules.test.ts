@@ -119,13 +119,14 @@ describe("Availability Rules", () => {
       expect(formatted).toBe(dateStr);
     });
 
-    it("treats Monday and Tuesday as closed reservation weekdays", () => {
+    it("treats Monday, Tuesday, and Wednesday as closed reservation weekdays", () => {
       expect(isClosedReservationWeekday(jstDateFromString("2026-03-09"))).toBe(true);
       expect(isClosedReservationWeekday(jstDateFromString("2026-03-10"))).toBe(true);
-      expect(isClosedReservationWeekday(jstDateFromString("2026-03-11"))).toBe(false);
+      expect(isClosedReservationWeekday(jstDateFromString("2026-03-11"))).toBe(true);
+      expect(isClosedReservationWeekday(jstDateFromString("2026-03-12"))).toBe(false);
     });
 
-    it("moves to Wednesday when starting from a closed Monday", () => {
+    it("moves to Thursday when starting from a closed Monday", () => {
       let nextMonday = addDays(todayJst(), 1);
       while (nextMonday.getDay() !== 1) {
         nextMonday = addDays(nextMonday, 1);
@@ -134,6 +135,7 @@ describe("Availability Rules", () => {
       const nextBookable = getNextBookableReservationDate(nextMonday);
       expect(nextBookable.getDay()).not.toBe(1);
       expect(nextBookable.getDay()).not.toBe(2);
+      expect(nextBookable.getDay()).not.toBe(3);
       expect(formatJst(nextBookable) >= "2026-04-03").toBe(true);
     });
 

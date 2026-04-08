@@ -5,7 +5,12 @@ import { prisma } from "@/lib/prisma";
 import { apiError } from "@/lib/api-security";
 import { getRequestId, logError } from "@/lib/logger";
 import { evaluateReservationAvailability } from "@/lib/reservation-capacity";
-import { findReservationsCompat } from "@/lib/reservation-compat";
+import {
+  RESERVATION_SCHEMA_NOT_READY_CODE,
+  ensureReservationSchemaReady,
+  findReservationsCompat,
+  isReservationSchemaNotReadyError,
+} from "@/lib/reservation-compat";
 import {
   monthStringSchema,
   reservationServicePeriodSchema,
@@ -94,6 +99,8 @@ export async function GET(request: NextRequest) {
   const contact = getContactPayload();
 
   try {
+    await ensureReservationSchemaReady(prisma);
+
     const [businessDays, reservations] = await Promise.all([
       prisma.businessDay.findMany({
         where: {
@@ -119,6 +126,7 @@ export async function GET(request: NextRequest) {
           partySize: number;
           status: ReservationStatus;
           servicePeriod: typeof parsedServicePeriod.data;
+          reservationType: "NORMAL" | "PRIVATE_BLOCK";
         }>
       >
     >((acc, reservation) => {
@@ -127,6 +135,7 @@ export async function GET(request: NextRequest) {
         partySize: reservation.partySize,
         status: reservation.status,
         servicePeriod: reservation.servicePeriod,
+        reservationType: reservation.reservationType,
       });
       acc[reservation.date] = current;
       return acc;
@@ -157,6 +166,14 @@ export async function GET(request: NextRequest) {
       }
     );
   } catch (error) {
+    if (isReservationSchemaNotReadyError(error)) {
+      return apiError(503, {
+        error: "Reservation schema is not ready",
+        code: RESERVATION_SCHEMA_NOT_READY_CODE,
+        requestId,
+      });
+    }
+
     logError("availability.monthly.fetch.failed", {
       requestId,
       route,

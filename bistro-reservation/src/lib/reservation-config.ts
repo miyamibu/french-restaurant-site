@@ -1,8 +1,8 @@
 export const RESERVATION_CONFIG = {
   timezone: "Asia/Tokyo",
   openingDate: "2026-04-03",
-  closedWeekdays: [1, 2] as const,
-  closedWeekdayLabels: ["月曜日", "火曜日"] as const,
+  closedWeekdays: [1, 2, 3] as const,
+  closedWeekdayLabels: ["月曜日", "火曜日", "水曜日"] as const,
   closedDates: [] as const,
   closedServicePeriods: [
     {

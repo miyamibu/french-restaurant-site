@@ -3,6 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { getAvailability } from "@/lib/availability";
 import { apiError } from "@/lib/api-security";
 import { getRequestId, logError } from "@/lib/logger";
+import {
+  RESERVATION_SCHEMA_NOT_READY_CODE,
+  ensureReservationSchemaReady,
+  isReservationSchemaNotReadyError,
+} from "@/lib/reservation-compat";
 import { dateStringSchema, reservationServicePeriodSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
@@ -65,6 +70,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    await ensureReservationSchemaReady(prisma);
+
     const availability = await getAvailability(
       {
         date,
@@ -77,6 +84,14 @@ export async function GET(request: NextRequest) {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
+    if (isReservationSchemaNotReadyError(error)) {
+      return apiError(503, {
+        error: "Reservation schema is not ready",
+        code: RESERVATION_SCHEMA_NOT_READY_CODE,
+        requestId,
+      });
+    }
+
     logError("availability.fetch.failed", {
       requestId,
       route: "/api/availability",

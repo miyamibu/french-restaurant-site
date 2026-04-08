@@ -19,6 +19,7 @@ export type SlotCounts = {
 export type AvailabilityReason =
   | "OK"
   | "PHONE_ONLY"
+  | "PRIVATE_BLOCK"
   | "CLOSED"
   | "CUTOFF_PASSED"
   | "BEFORE_OPENING"
@@ -39,6 +40,7 @@ export type ReservationAvailabilityInput = {
     partySize: number;
     status: "CONFIRMED" | "CANCELLED" | "DONE" | "NOSHOW";
     servicePeriod: ReservationServicePeriodKey;
+    reservationType?: "NORMAL" | "PRIVATE_BLOCK";
   }>;
   businessDayClosed?: boolean;
   now?: Date;
@@ -118,10 +120,15 @@ export function aggregateSlotCounts(
     partySize: number;
     status: "CONFIRMED" | "CANCELLED" | "DONE" | "NOSHOW";
     servicePeriod: ReservationServicePeriodKey;
+    reservationType?: "NORMAL" | "PRIVATE_BLOCK";
   }>
 ): SlotCounts {
   return reservations.reduce<SlotCounts>((counts, reservation) => {
     if (reservation.status === "CANCELLED") {
+      return counts;
+    }
+
+    if (reservation.reservationType === "PRIVATE_BLOCK") {
       return counts;
     }
 
@@ -199,6 +206,20 @@ export function evaluateReservationAvailability(
     };
   }
 
+  const hasPrivateBlock = input.existingReservations.some(
+    (reservation) =>
+      reservation.servicePeriod === input.servicePeriod &&
+      reservation.status !== "CANCELLED" &&
+      reservation.reservationType === "PRIVATE_BLOCK"
+  );
+
+  if (hasPrivateBlock) {
+    return {
+      reason: "PRIVATE_BLOCK",
+      webBookable: false,
+    };
+  }
+
   const slotRequirement = partySizeToSlotRequirement(input.partySize);
   if (slotRequirement === "phone_only") {
     return {
@@ -209,7 +230,9 @@ export function evaluateReservationAvailability(
 
   const existingCounts = aggregateSlotCounts(
     input.existingReservations.filter(
-      (reservation) => reservation.servicePeriod === input.servicePeriod
+      (reservation) =>
+        reservation.servicePeriod === input.servicePeriod &&
+        reservation.reservationType !== "PRIVATE_BLOCK"
     )
   );
   const combinedCounts = addSlotRequirement(existingCounts, slotRequirement);

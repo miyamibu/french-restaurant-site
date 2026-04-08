@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ReservationStatus } from "@prisma/client";
+import { ReservationStatus, ReservationType } from "@prisma/client";
 import { addDays } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { formatJst, todayJst } from "@/lib/dates";
 import { env, hasLineMessagingEnv } from "@/lib/env";
 import { apiError } from "@/lib/api-security";
 import { getRequestId, logError, logInfo } from "@/lib/logger";
-import { findReservationsCompat } from "@/lib/reservation-compat";
+import {
+  RESERVATION_SCHEMA_NOT_READY_CODE,
+  ensureReservationSchemaReady,
+  findReservationsCompat,
+  isReservationSchemaNotReadyError,
+} from "@/lib/reservation-compat";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -24,11 +29,17 @@ function isGetCompatibilityRequest(request: NextRequest) {
 }
 
 async function executeReminderCron() {
+  await ensureReservationSchemaReady(prisma);
+
   const tomorrow = addDays(todayJst(), 1);
   const target = formatJst(tomorrow);
 
   const reservations = await findReservationsCompat(prisma, {
-    where: { date: target, status: ReservationStatus.CONFIRMED },
+    where: {
+      date: target,
+      status: ReservationStatus.CONFIRMED,
+      reservationType: ReservationType.NORMAL,
+    },
     orderBy: { createdAt: "asc" },
   });
 
@@ -62,6 +73,14 @@ async function executeRemind(request: NextRequest) {
     const response = await executeReminderCron();
     return response;
   } catch (error) {
+    if (isReservationSchemaNotReadyError(error)) {
+      return apiError(503, {
+        error: "Reservation schema is not ready",
+        code: RESERVATION_SCHEMA_NOT_READY_CODE,
+        requestId,
+      });
+    }
+
     logError("crons.remind.failed", {
       requestId,
       route: "/api/crons/remind",

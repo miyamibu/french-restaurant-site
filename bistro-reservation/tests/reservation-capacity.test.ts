@@ -209,5 +209,49 @@ describe("reservation capacity rules", () => {
         webBookable: true,
       });
     });
+
+    it("returns PRIVATE_BLOCK when the requested service period is blocked", () => {
+      expect(
+        evaluateReservationAvailability({
+          date: "2026-04-10",
+          servicePeriod: "DINNER",
+          partySize: 2,
+          existingReservations: [
+            {
+              partySize: 1,
+              status: "CONFIRMED",
+              servicePeriod: "DINNER",
+              reservationType: "PRIVATE_BLOCK",
+            },
+          ],
+          now: jstDateTimeFromString("2026-04-08", "12:00"),
+        })
+      ).toEqual({
+        reason: "PRIVATE_BLOCK",
+        webBookable: false,
+      });
+    });
+
+    it("does not treat another service period's private block as blocked", () => {
+      expect(
+        evaluateReservationAvailability({
+          date: "2026-04-10",
+          servicePeriod: "LUNCH",
+          partySize: 2,
+          existingReservations: [
+            {
+              partySize: 1,
+              status: "CONFIRMED",
+              servicePeriod: "DINNER",
+              reservationType: "PRIVATE_BLOCK",
+            },
+          ],
+          now: jstDateTimeFromString("2026-04-08", "12:00"),
+        })
+      ).toEqual({
+        reason: "OK",
+        webBookable: true,
+      });
+    });
   });
 });

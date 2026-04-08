@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   getDefaultArrivalTimeForCourse,
+  getPrivateBlockMarkerText,
   getReservationSlotGroups,
   inferReservationServicePeriodFromArrivalTime,
   inferReservationServicePeriodFromCourse,
@@ -64,6 +65,7 @@ const nonSelectableReasons = new Set([
   "BEFORE_OPENING",
   "OUT_OF_RANGE",
   "CLOSED",
+  "PRIVATE_BLOCK",
   "SAME_DAY_BLOCKED",
   "CUTOFF_PASSED",
 ]);
@@ -184,6 +186,7 @@ export function ReserveForm({
       selectedInitialServicePeriod,
     [form.arrivalTime, form.course, selectedInitialServicePeriod]
   );
+  const activeServicePeriod = currentServicePeriod;
   const selectableServicePeriodsForSelectedDate = useMemo(() => {
     const selectablePeriods = servicePeriods.filter((period) => {
       const daily = monthlyAvailabilityByPeriod[period][form.date] ?? null;
@@ -211,14 +214,12 @@ export function ReserveForm({
   const selectedDateServiceStatus = useMemo(() => {
     const lunch = monthlyAvailabilityByPeriod.LUNCH[form.date] ?? null;
     const dinner = monthlyAvailabilityByPeriod.DINNER[form.date] ?? null;
-    const lunchSelectable = lunch == null || !nonSelectableReasons.has(lunch.reason);
-    const dinnerSelectable = dinner == null || !nonSelectableReasons.has(dinner.reason);
+    const privateBlockMarkerText = getPrivateBlockMarkerText(lunch?.reason, dinner?.reason);
 
     return {
       lunch,
       dinner,
-      isDinnerOnly: !lunchSelectable && dinnerSelectable,
-      isLunchOnly: lunchSelectable && !dinnerSelectable,
+      privateBlockMarkerText,
     };
   }, [form.date, monthlyAvailabilityByPeriod]);
   const dayLabels = ["日", "月", "火", "水", "木", "金", "土"] as const;
@@ -333,7 +334,7 @@ export function ReserveForm({
     let active = true;
     setAvailability((prev) => ({ ...prev, reason: "CHECKING" }));
 
-    loadDailyAvailability(form.date, currentServicePeriod, form.partySize)
+    loadDailyAvailability(form.date, activeServicePeriod, form.partySize)
       .then((data) => {
         if (!active) return;
         setAvailability(data);
@@ -346,7 +347,7 @@ export function ReserveForm({
     return () => {
       active = false;
     };
-  }, [currentServicePeriod, form.date, form.partySize]);
+  }, [activeServicePeriod, form.date, form.partySize]);
 
   useEffect(() => {
     let active = true;
@@ -422,22 +423,26 @@ export function ReserveForm({
 
     try {
       const fullName = `${form.lastName} ${form.firstName}`.trim();
+      const submittedServicePeriod = currentServicePeriod;
+      const payload = {
+        date: form.date,
+        servicePeriod: submittedServicePeriod,
+        course: form.course,
+        phone: form.phone,
+        name: fullName,
+        lastName: form.lastName,
+        firstName: form.firstName,
+        note: form.note || undefined,
+        partySize: Number(form.partySize),
+        arrivalTime: form.arrivalTime,
+      };
       const res = await fetch("/api/reservations", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-Requested-With": "XMLHttpRequest",
         },
-        body: JSON.stringify({
-          date: form.date,
-          servicePeriod: currentServicePeriod,
-          course: form.course,
-          phone: form.phone,
-          name: fullName,
-          note: form.note || undefined,
-          partySize: Number(form.partySize),
-          arrivalTime: form.arrivalTime,
-        }),
+        body: JSON.stringify(payload),
         signal: controller.signal,
       });
 
@@ -445,7 +450,7 @@ export function ReserveForm({
       if (res.ok) {
         setResult(data.summary ?? "ご予約を受け付けました。");
         const [nextDaily, nextMonthly] = await Promise.all([
-          loadDailyAvailability(form.date, currentServicePeriod, form.partySize).catch(
+          loadDailyAvailability(form.date, submittedServicePeriod, form.partySize).catch(
             () => initialAvailability
           ),
           Promise.all(
@@ -523,6 +528,9 @@ export function ReserveForm({
       return { value, dateObj };
     }),
   ];
+  const submitDisabled = submitting || availability.reason !== "OK";
+  const submitButtonLabel = "予約";
+  const submitAriaLabel = "予約する";
 
   return (
     <form onSubmit={submit} className="rounded-xl bg-white p-6 space-y-4">
@@ -623,11 +631,10 @@ export function ReserveForm({
                     .filter((daily): daily is AvailabilityState => daily != null);
                   const lunchDaily = getDateAvailability(cell.value, "LUNCH");
                   const dinnerDaily = getDateAvailability(cell.value, "DINNER");
-                  const lunchSelectable =
-                    lunchDaily == null || !nonSelectableReasons.has(lunchDaily.reason);
-                  const dinnerSelectable =
-                    dinnerDaily == null || !nonSelectableReasons.has(dinnerDaily.reason);
-                  const isDinnerOnlyDay = !lunchSelectable && dinnerSelectable;
+                  const privateBlockMarkerText = getPrivateBlockMarkerText(
+                    lunchDaily?.reason,
+                    dinnerDaily?.reason
+                  );
                   const hasBookablePeriod = dailyStates.some((daily) => daily.webBookable);
                   const hasPhoneOnlyPeriod = dailyStates.some((daily) => daily.reason === "PHONE_ONLY");
                   const isClosedDay =
@@ -638,8 +645,8 @@ export function ReserveForm({
                       dailyStates.every((daily) => nonSelectableReasons.has(daily.reason)));
 
                   let markerText = "";
-                  if (isDinnerOnlyDay) {
-                    markerText = "夜のみ";
+                  if (privateBlockMarkerText) {
+                    markerText = privateBlockMarkerText;
                   } else if (hasBookablePeriod) {
                     markerText = "○";
                   } else if (hasPhoneOnlyPeriod) {
@@ -649,19 +656,27 @@ export function ReserveForm({
                   }
 
                   const markerFontSize =
-                    markerText === "夜のみ"
+                    markerText === "夜のみ" || markerText === "昼のみ"
                       ? 10
+                      : markerText === "終日貸切"
+                      ? 9
                       : markerText === "△"
                       ? calendarDayCallMarkerFontSize
                       : calendarDayMarkerNormalFontSize;
                   const markerFontWeight =
-                    markerText === "夜のみ"
+                    markerText === "夜のみ" || markerText === "昼のみ" || markerText === "終日貸切"
                       ? 700
                       : markerText === "△"
                       ? calendarDayCallMarkerFontWeight
                       : calendarDayMarkerNormalFontWeight;
                   const markerColor =
-                    markerText === "△" || markerText === "休" ? "#b32626" : "#7a5528";
+                    markerText === "△" ||
+                    markerText === "休" ||
+                    markerText === "夜のみ" ||
+                    markerText === "昼のみ" ||
+                    markerText === "終日貸切"
+                      ? "#b32626"
+                      : "#7a5528";
 
                   return (
                     <div
@@ -748,9 +763,14 @@ export function ReserveForm({
                     </option>
                   ))}
                 </select>
-                {selectedDateServiceStatus.isDinnerOnly ? (
+                {selectedDateServiceStatus.privateBlockMarkerText === "夜のみ" ? (
                   <p className="text-xs text-[#8f2a2a]">
                     ランチは貸し切り営業のため、ディナーのみご予約いただけます。
+                  </p>
+                ) : null}
+                {selectedDateServiceStatus.privateBlockMarkerText === "昼のみ" ? (
+                  <p className="text-xs text-[#8f2a2a]">
+                    ディナーは貸し切り営業のため、ランチのみご予約いただけます。
                   </p>
                 ) : null}
               </div>
@@ -765,13 +785,11 @@ export function ReserveForm({
                   style={{ borderRadius: `${formFieldRadius}px` }}
                   required
                 >
-                  {Array.from({ length: partyMax - partyMin + 1 }, (_, i) => partyMin + i).map(
-                    (n) => (
-                      <option key={n} value={n}>
-                        {n}名
-                      </option>
-                    )
-                  )}
+                  {Array.from({ length: partyMax - partyMin + 1 }, (_, i) => partyMin + i).map((n) => (
+                    <option key={n} value={n}>
+                      {n}名
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -861,8 +879,8 @@ export function ReserveForm({
                       width: `${reserveButtonKnobWidth}px`,
                       height: `${reserveButtonKnobHeight}px`,
                     }}
-                    disabled={submitting || availability.reason !== "OK"}
-                    aria-label={submitting ? "送信中..." : "予約する"}
+                    disabled={submitDisabled}
+                    aria-label={submitting ? "送信中..." : submitAriaLabel}
                   >
                     <span
                       className="inline-flex items-center justify-center rounded-[26px] bg-gradient-to-b from-[#fffdfa] via-[#f7f2ea] to-[#efe6da]"
@@ -873,7 +891,7 @@ export function ReserveForm({
                       }}
                     >
                       <span className="text-base font-semibold tracking-wide text-[#7a5528] md:text-lg">
-                        {submitting ? "送信中" : "予約"}
+                        {submitting ? "送信中" : submitButtonLabel}
                       </span>
                     </span>
                   </button>
@@ -906,8 +924,8 @@ export function ReserveForm({
               width: `${reserveButtonKnobWidth}px`,
               height: `${reserveButtonKnobHeight}px`,
             }}
-            disabled={submitting || availability.reason !== "OK"}
-            aria-label={submitting ? "送信中..." : "予約する"}
+            disabled={submitDisabled}
+            aria-label={submitting ? "送信中..." : submitAriaLabel}
           >
             <span
               className="inline-flex items-center justify-center rounded-[26px] bg-gradient-to-b from-[#fffdfa] via-[#f7f2ea] to-[#efe6da]"
@@ -918,7 +936,7 @@ export function ReserveForm({
               }}
             >
               <span className="text-base font-semibold tracking-wide text-[#7a5528] md:text-lg">
-                {submitting ? "送信中" : "予約"}
+                {submitting ? "送信中" : submitButtonLabel}
               </span>
             </span>
           </button>

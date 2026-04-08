@@ -22,27 +22,77 @@ enum ReservationStatus {
   NOSHOW
 }
 
+enum ReservationType {
+  NORMAL
+  PRIVATE_BLOCK
+}
+
 enum ServicePeriod {
   LUNCH
   DINNER
 }
 
+enum PrivateBlockAuditResult {
+  CREATED
+  NO_OP
+  RELEASED
+}
+
+enum PrivateBlockAuditSource {
+  PUBLIC_FORM
+  ADMIN_SHARED_BASIC
+}
+
 model Reservation {
-  id            String             @id @default(cuid())
-  date          String
-  servicePeriod ServicePeriod
-  seatType      SeatType
-  partySize     Int
-  arrivalTime String?
-  name          String
-  phone         String
-  note          String?
-  status        ReservationStatus  @default(CONFIRMED)
-  lineUserId    String?
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  id                    String                 @id @default(cuid())
+  date                  String
+  servicePeriod         ServicePeriod
+  reservationType       ReservationType        @default(NORMAL)
+  seatType              SeatType
+  partySize             Int
+  arrivalTime           String?
+  name                  String
+  phone                 String
+  note                  String?
+  status                ReservationStatus      @default(CONFIRMED)
+  lineUserId            String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  privateBlockAuditLogs PrivateBlockAuditLog[]
 
   @@index([date, servicePeriod])
+  @@index([date, servicePeriod, reservationType])
+}
+
+model PrivateBlockAuditLog {
+  id            String                  @id @default(cuid())
+  reservationId String?
+  reservation   Reservation?            @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  date          String
+  servicePeriod ServicePeriod
+  result        PrivateBlockAuditResult
+  source        PrivateBlockAuditSource
+  actorName     String?
+  requestId     String
+  ipAddress     String?
+  userAgent     String?
+  note          String?
+  createdAt     DateTime                @default(now())
+
+  @@index([date, servicePeriod, createdAt])
+  @@index([reservationId, createdAt])
+}
+
+model ReservationRateLimitEvent {
+  id            String         @id @default(cuid())
+  keyHash       String
+  scope         String
+  date          String?
+  servicePeriod ServicePeriod?
+  createdAt     DateTime       @default(now())
+
+  @@index([keyHash, scope, createdAt])
+  @@index([date, servicePeriod, scope, createdAt])
 }
 
 model BusinessDay {
@@ -57,8 +107,8 @@ model MenuItem {
   title       String
   description String
   price       Int
-  sortOrder   Int      @default(0)
-  isPublished Boolean  @default(true)
+  sortOrder   Int     @default(0)
+  isPublished Boolean @default(true)
 }
 
 model Photo {
@@ -66,6 +116,6 @@ model Photo {
   url         String
   caption     String
   category    String  @default("food")
-  sortOrder   Int      @default(0)
-  isPublished Boolean  @default(true)
+  sortOrder   Int     @default(0)
+  isPublished Boolean @default(true)
 }
